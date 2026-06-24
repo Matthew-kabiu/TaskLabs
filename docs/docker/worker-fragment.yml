@@ -1,0 +1,26 @@
+# Compose fragment — to be merged into docker-compose.yml in Plan 9.
+# Assumes the `app` service builds the shared image and exposes named volumes
+# `pgdata`/`redisdata`. Plan 9 will add the postgres/redis services.
+
+services:
+  worker:
+    image: tasklabs:latest          # same image as `app`
+    command: ["node", "dist/worker/telegram.js"]
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: ${REDIS_URL}
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL}
+      # Worker doesn't serve HTTP — no NEXTAUTH_URL needed.
+    healthcheck:
+      # Worker has no HTTP. Use a process-presence check.
+      test: ["CMD-SHELL", "pgrep -f 'dist/worker/telegram.js' >/dev/null"]
+      interval: 30s
+      timeout: 5s
+      retries: 3

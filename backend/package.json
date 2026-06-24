@@ -1,0 +1,27 @@
+{
+  "name": "@tasklabs/backend",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "convex dev",
+    "deploy": "convex deploy",
+    "keys": "node generateKeys.mjs",
+    "sync-env": "node scripts/syncDeploymentEnv.mjs",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@auth/core": "0.41.1",
+    "@convex-dev/auth": "0.0.94",
+    "@convex-dev/rate-limiter": "0.3.2",
+    "convex": "1.41.0"
+  },
+  "devDependencies": {
+    "@edge-runtime/vm": "^5.0.0",
+    "@types/node": "20.19.43",
+    "convex-test": "^0.0.53",
+    "typescript": "^5",
+    "vitest": "^4.1.9"
+  }
+}

@@ -1,0 +1,197 @@
+name: tasklabs
+
+# Dev stack: same core services as production, with hot reload for the Next.js
+# frontend and Convex functions.
+# Usage:
+#   docker compose --env-file .env.dev -f docker-compose.dev.yml up --build
+#
+# The Convex Rust backend still runs from its published image. Backend source
+# hot reload comes from the `convex-dev` service, which watches backend/convex
+# and pushes changes to the self-hosted backend.
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?missing}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?missing}
+      POSTGRES_DB: ${INSTANCE_NAME:?missing}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    image: ghcr.io/get-convex/convex-backend:latest
+    stop_grace_period: 10s
+    stop_signal: SIGINT
+    ports:
+      - "${CONVEX_API_PORT:?missing}:${CONVEX_API_INTERNAL_PORT:?missing}"
+      - "${CONVEX_SITE_PROXY_PORT:?missing}:${CONVEX_SITE_INTERNAL_PORT:?missing}"
+    volumes:
+      - convex-data:/convex/data
+    environment:
+      - INSTANCE_NAME=${INSTANCE_NAME:?missing}
+      - INSTANCE_SECRET=${INSTANCE_SECRET:?missing}
+      - CONVEX_CLOUD_ORIGIN=${CONVEX_CLOUD_ORIGIN:?missing}
+      - CONVEX_SITE_ORIGIN=${CONVEX_SITE_ORIGIN:?missing}
+      - POSTGRES_URL=${POSTGRES_URL:?missing}
+      - DO_NOT_REQUIRE_SSL=${DO_NOT_REQUIRE_SSL:?missing}
+      - DISABLE_BEACON=${DISABLE_BEACON:?missing}
+      - RUST_LOG=${RUST_LOG:?missing}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:${CONVEX_API_INTERNAL_PORT:?missing}/version"]
+      interval: 5s
+      start_period: 10s
+
+  dashboard:
+    image: ghcr.io/get-convex/convex-dashboard:latest
+    ports:
+      - "${CONVEX_DASHBOARD_PORT:?missing}:${CONVEX_DASHBOARD_INTERNAL_PORT:?missing}"
+    environment:
+      - NEXT_PUBLIC_DEPLOYMENT_URL=${CONVEX_CLOUD_ORIGIN:?missing}
+      - CONVEX_DASHBOARD_INTERNAL_PORT=${CONVEX_DASHBOARD_INTERNAL_PORT:?missing}
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:' + process.env.CONVEX_DASHBOARD_INTERNAL_PORT).then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))\""]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile.dev
+      # Docker Desktop local builds can collide on attestation manifest exports;
+      # keep local Compose builds on the plain Docker exporter.
+      x-bake:
+        output: type=docker
+    ports:
+      - "${FRONTEND_PORT:?missing}:${FRONTEND_INTERNAL_PORT:?missing}"
+    command:
+      [
+        "sh",
+        "-c",
+        "mkdir -p /workspace/backend/node_modules && ln -snf /workspace/frontend/node_modules/convex /workspace/backend/node_modules/convex && ln -snf /workspace/frontend/node_modules/convex /workspace/node_modules/convex && pnpm dev --hostname \"$${FRONTEND_HOST}\" --port \"$${FRONTEND_INTERNAL_PORT}\"",
+      ]
+    volumes:
+      - ./frontend:/workspace/frontend:rw
+      - ./backend/convex:/workspace/backend/convex:ro
+      - /workspace/node_modules
+      - /workspace/frontend/node_modules
+      - /workspace/frontend/.next
+    environment:
+      - NODE_ENV=${FRONTEND_NODE_ENV:?missing}
+      - NEXT_PUBLIC_CONVEX_URL=${NEXT_PUBLIC_CONVEX_URL:?missing}
+      - TELEGRAM_API_ORIGIN=${TELEGRAM_API_ORIGIN:?missing}
+      - FRONTEND_ORIGIN=${FRONTEND_ORIGIN:?missing}
+      - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:?missing}
+      - FRONTEND_HOST=${FRONTEND_HOST:?missing}
+      - FRONTEND_INTERNAL_PORT=${FRONTEND_INTERNAL_PORT:?missing}
+      - CHOKIDAR_USEPOLLING=${CHOKIDAR_USEPOLLING:?missing}
+      - CHOKIDAR_INTERVAL=${CHOKIDAR_INTERVAL:?missing}
+      - WATCHPACK_POLLING=${WATCHPACK_POLLING:?missing}
+      - WATCHPACK_POLLING_INTERVAL=${WATCHPACK_POLLING_INTERVAL:?missing}
+      - NEXT_TURBOPACK_ROOT=${NEXT_TURBOPACK_ROOT:?missing}
+      - NEXT_TELEMETRY_DISABLED=${NEXT_TELEMETRY_DISABLED:?missing}
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:' + process.env.FRONTEND_INTERNAL_PORT + '/api/health').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))\""]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+  convex-dev:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile.dev
+      # Docker Desktop local builds can collide on attestation manifest exports;
+      # keep local Compose builds on the plain Docker exporter.
+      x-bake:
+        output: type=docker
+    command:
+      [
+        "sh",
+        "-c",
+        "mkdir -p \"$${CONVEX_TMPDIR}\" && test -n \"$${CONVEX_SELF_HOSTED_ADMIN_KEY}\" || { echo 'CONVEX_SELF_HOSTED_ADMIN_KEY is required. Generate it with: docker compose --env-file .env.dev exec backend ./generate_admin_key.sh'; exit 1; }; node scripts/syncDeploymentEnv.mjs && pnpm exec convex dev --typecheck disable --tail-logs pause-on-deploy",
+      ]
+    volumes:
+      - ./backend:/workspace/backend:rw
+      - /workspace/node_modules
+      - /workspace/backend/node_modules
+    environment:
+      - NODE_ENV=${BACKEND_NODE_ENV:?missing}
+      - CONVEX_SELF_HOSTED_URL=${CONVEX_SELF_HOSTED_URL:?missing}
+      - CONVEX_SELF_HOSTED_ADMIN_KEY=${CONVEX_SELF_HOSTED_ADMIN_KEY}
+      - CONVEX_TMPDIR=${CONVEX_TMPDIR:?missing}
+      - SITE_URL=${SITE_URL:?missing}
+      - JWT_PRIVATE_KEY=${JWT_PRIVATE_KEY:?missing}
+      - JWKS=${JWKS:?missing}
+      - TELEGRAM_API_ORIGIN=${TELEGRAM_API_ORIGIN:?missing}
+      - TELEGRAM_WEBHOOK_ORIGIN=${TELEGRAM_WEBHOOK_ORIGIN}
+      - CHOKIDAR_USEPOLLING=${CHOKIDAR_USEPOLLING:?missing}
+      - CHOKIDAR_INTERVAL=${CHOKIDAR_INTERVAL:?missing}
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"const fs = require('node:fs'); process.exit(fs.existsSync('/workspace/backend/convex/_generated/api.js') ? 0 : 1)\""]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+  db-backup:
+    profiles: ["backup"]
+    build:
+      context: .
+      dockerfile: ops/backup/Dockerfile
+      # Docker Desktop local builds can collide on attestation manifest exports;
+      # keep local Compose builds on the plain Docker exporter.
+      x-bake:
+        output: type=docker
+    restart: unless-stopped
+    environment:
+      - BACKUP_CRON_SCHEDULE=${BACKUP_CRON_SCHEDULE}
+      - BACKUP_TIMEZONE=${BACKUP_TIMEZONE}
+      - BACKUP_TMPDIR=${BACKUP_TMPDIR}
+      - BACKUP_OBJECT_PREFIX=${BACKUP_OBJECT_PREFIX}
+      - POSTGRES_HOST=${POSTGRES_HOST}
+      - POSTGRES_PORT=${POSTGRES_PORT}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - INSTANCE_NAME=${INSTANCE_NAME}
+      - RUSTFS_ENDPOINT=${RUSTFS_ENDPOINT}
+      - RUSTFS_REGION=${RUSTFS_REGION}
+      - RUSTFS_BUCKET=${RUSTFS_BUCKET}
+      - RUSTFS_ACCESS_KEY_ID=${RUSTFS_ACCESS_KEY_ID}
+      - RUSTFS_SECRET_ACCESS_KEY=${RUSTFS_SECRET_ACCESS_KEY}
+      - RUSTFS_S3_ADDRESSING_STYLE=${RUSTFS_S3_ADDRESSING_STYLE}
+      - TELEGRAM_API_ORIGIN=${TELEGRAM_API_ORIGIN}
+      - BACKUP_TELEGRAM_BOT_TOKEN=${BACKUP_TELEGRAM_BOT_TOKEN}
+      - BACKUP_TELEGRAM_CHAT_ID=${BACKUP_TELEGRAM_CHAT_ID}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/backup-healthcheck.sh"]
+      interval: 30s
+      timeout: 15s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  postgres-data:
+  convex-data:

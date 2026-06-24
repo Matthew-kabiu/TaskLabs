@@ -1,0 +1,658 @@
+openapi: 3.0.3
+info:
+  title: Tasklabs Backend API
+  version: 1.0.0
+  description: >
+    Baseline OpenAPI document for the Tasklabs Next.js backend refactor. This
+    spec mirrors the current App Router route surface while backend concerns
+    live under `modules/*_module/src/`.
+servers:
+  - url: http://localhost:3000
+    description: Local development
+tags:
+  - name: Health
+  - name: Auth
+  - name: Workspaces
+  - name: Invitations
+  - name: Tasks
+  - name: Labels
+  - name: Events
+  - name: Notifications
+  - name: Search
+  - name: Settings
+  - name: Telegram
+  - name: Realtime
+  - name: MCP
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: authjs.session-token
+    apiKeyBearer:
+      type: http
+      scheme: bearer
+      bearerFormat: TaskLabs API key
+  schemas:
+    SuccessEnvelope:
+      type: object
+      properties:
+        data:
+          type: object
+          additionalProperties: true
+      required: [data]
+    ErrorEnvelope:
+      type: object
+      properties:
+        error:
+          oneOf:
+            - type: string
+            - type: object
+              additionalProperties: true
+      required: [error]
+    HealthResponse:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            ok:
+              type: boolean
+            status:
+              type: string
+    SetupStatusResponse:
+      type: object
+      properties:
+        setupNeeded:
+          type: boolean
+      required: [setupNeeded]
+    Task:
+      type: object
+      additionalProperties: true
+    Event:
+      type: object
+      additionalProperties: true
+    Workspace:
+      type: object
+      additionalProperties: true
+    Invitation:
+      type: object
+      additionalProperties: true
+    Notification:
+      type: object
+      additionalProperties: true
+paths:
+  /api/health:
+    get:
+      tags: [Health]
+      summary: Health check
+      responses:
+        '200':
+          description: Service status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+  /api/auth/{authPath}:
+    parameters:
+      - name: authPath
+        in: path
+        required: true
+        schema:
+          type: string
+        description: NextAuth catch-all path segment
+    get:
+      tags: [Auth]
+      summary: NextAuth handler entrypoint
+      responses:
+        '200':
+          description: NextAuth response
+    post:
+      tags: [Auth]
+      summary: NextAuth handler entrypoint with credential rate limiting
+      responses:
+        '200':
+          description: NextAuth response
+        '429':
+          description: Rate limited
+  /api/sse:
+    get:
+      tags: [Realtime]
+      summary: Open realtime server-sent events stream
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: Event stream opened
+          content:
+            text/event-stream:
+              schema:
+                type: string
+        '401':
+          description: Unauthenticated
+        '403':
+          description: Not a workspace member
+  /api/telegram/webhook/{userId}:
+    post:
+      tags: [Telegram]
+      summary: Receive Telegram webhook updates for a user
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Webhook accepted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+        '401':
+          description: Invalid secret token
+        '429':
+          description: Rate limited
+  /api/mcp:
+    post:
+      tags: [MCP]
+      summary: Stateless MCP endpoint for TaskLabs tools
+      description: >
+        Requires a TaskLabs workspace-scoped bearer API key. v1 exposes tools
+        only and does not expose prompts, resources, sampling, elicitation, SSE,
+        resumability, or MCP session IDs.
+      security:
+        - apiKeyBearer: []
+      parameters:
+        - name: MCP-Protocol-Version
+          in: header
+          required: false
+          schema:
+            type: string
+          example: '2025-06-18'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: MCP JSON-RPC response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '400':
+          description: Malformed JSON-RPC request or query-string token transport
+        '401':
+          description: Missing or invalid bearer API key
+          headers:
+            WWW-Authenticate:
+              schema:
+                type: string
+              example: Bearer realm="tasklabs-mcp"
+        '403':
+          description: Invalid Host or Origin
+        '405':
+          description: Method not allowed
+  /api/v1/register:
+    post:
+      tags: [Auth]
+      summary: Register a member account when public registration is enabled
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '201':
+          description: User and personal workspace created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '400':
+          description: Validation or creation failure
+        '403':
+          description: Public registration disabled
+        '409':
+          description: Email already taken
+        '429':
+          description: Rate limited
+  /api/v1/setup:
+    post:
+      tags: [Auth]
+      summary: Create the first admin account during initial setup
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '201':
+          description: Admin and workspace created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '400':
+          description: Validation or creation failure
+        '403':
+          description: Setup already complete
+        '429':
+          description: Rate limited
+  /api/v1/setup/status:
+    get:
+      tags: [Auth]
+      summary: Check if initial setup is still required
+      responses:
+        '200':
+          description: Setup flag
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SetupStatusResponse'
+  /api/v1/workspaces:
+    get:
+      tags: [Workspaces]
+      summary: List workspaces for the current user
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: Workspace list
+    post:
+      tags: [Workspaces]
+      summary: Create a workspace
+      security:
+        - sessionCookie: []
+      responses:
+        '201':
+          description: Workspace created
+  /api/v1/workspaces/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+    get:
+      tags: [Workspaces]
+      summary: Get a workspace
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: Workspace details
+    patch:
+      tags: [Workspaces]
+      summary: Update a workspace
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: Workspace updated
+    delete:
+      tags: [Workspaces]
+      summary: Delete a workspace
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: Workspace deleted
+  /api/v1/workspaces/{id}/members:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+    get:
+      tags: [Workspaces]
+      summary: List workspace members
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: Member list
+    patch:
+      tags: [Workspaces]
+      summary: Update a workspace member
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: Member updated
+    delete:
+      tags: [Workspaces]
+      summary: Remove a workspace member
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: Member removed
+  /api/v1/workspaces/active/members:
+    get:
+      tags: [Workspaces]
+      summary: List members for the active workspace
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: Active workspace member list
+  /api/v1/invitations:
+    get:
+      tags: [Invitations]
+      summary: List invitations for the active workspace
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: Invitation list
+    post:
+      tags: [Invitations]
+      summary: Create a workspace invitation
+      security:
+        - sessionCookie: []
+      responses:
+        '201':
+          description: Invitation created
+  /api/v1/invitations/{token}:
+    parameters:
+      - name: token
+        in: path
+        required: true
+        schema:
+          type: string
+    get:
+      tags: [Invitations]
+      summary: Read invitation details by token
+      responses:
+        '200':
+          description: Invitation details
+    post:
+      tags: [Invitations]
+      summary: Accept an invitation by token
+      responses:
+        '200':
+          description: Invitation accepted
+  /api/v1/tasks:
+    get:
+      tags: [Tasks]
+      summary: List tasks
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: Task list
+    post:
+      tags: [Tasks]
+      summary: Create a task
+      security:
+        - sessionCookie: []
+      responses:
+        '201':
+          description: Task created
+  /api/v1/tasks/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+    get:
+      tags: [Tasks]
+      summary: Get a task
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: Task details
+    patch:
+      tags: [Tasks]
+      summary: Update a task
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: Task updated
+    delete:
+      tags: [Tasks]
+      summary: Delete a task
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: Task deleted
+  /api/v1/tasks/reorder:
+    patch:
+      tags: [Tasks]
+      summary: Reorder tasks
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: Tasks reordered
+  /api/v1/labels:
+    get:
+      tags: [Labels]
+      summary: List labels
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: Label list
+    post:
+      tags: [Labels]
+      summary: Create a label
+      security:
+        - sessionCookie: []
+      responses:
+        '201':
+          description: Label created
+  /api/v1/labels/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+    patch:
+      tags: [Labels]
+      summary: Update a label
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: Label updated
+    delete:
+      tags: [Labels]
+      summary: Delete a label
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: Label deleted
+  /api/v1/events:
+    get:
+      tags: [Events]
+      summary: List events
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: Event list
+    post:
+      tags: [Events]
+      summary: Create an event
+      security:
+        - sessionCookie: []
+      responses:
+        '201':
+          description: Event created
+  /api/v1/events/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+    get:
+      tags: [Events]
+      summary: Get an event
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: Event details
+    patch:
+      tags: [Events]
+      summary: Update an event
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: Event updated
+    delete:
+      tags: [Events]
+      summary: Delete an event
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: Event deleted
+  /api/v1/events/{id}/complete:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+    patch:
+      tags: [Events]
+      summary: Mark an event as completed
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: Event completion updated
+  /api/v1/notifications:
+    get:
+      tags: [Notifications]
+      summary: List notifications
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: Notification list
+    patch:
+      tags: [Notifications]
+      summary: Mark all notifications as read
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: Notifications updated
+  /api/v1/notifications/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+    patch:
+      tags: [Notifications]
+      summary: Mark a notification as read
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: Notification updated
+  /api/v1/search:
+    get:
+      tags: [Search]
+      summary: Search across user content
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: q
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Search results
+  /api/v1/settings/profile:
+    patch:
+      tags: [Settings]
+      summary: Update the current user profile and notification settings
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: Profile updated
+        '400':
+          description: Invalid body or credential failure
+        '409':
+          description: Email already in use
+  /api/v1/settings/system:
+    patch:
+      tags: [Settings]
+      summary: Update system settings as an admin
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: Settings updated
+        '401':
+          description: Unauthenticated
+        '403':
+          description: Admin only
+  /api/v1/telegram/token:
+    get:
+      tags: [Telegram]
+      summary: Read whether a Telegram bot token is configured
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: Token presence summary
+  /api/v1/telegram/link:
+    post:
+      tags: [Telegram]
+      summary: Link the current user to a Telegram chat via /start polling
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: Chat linked
+        '400':
+          description: Token missing
+        '404':
+          description: No /start message found
+        '502':
+          description: Telegram API failure
+  /api/v1/telegram/test:
+    post:
+      tags: [Telegram]
+      summary: Send a test Telegram notification to the current user
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: Test message sent
+        '400':
+          description: Bot token missing or chat not linked
+        '502':
+          description: Telegram delivery failure

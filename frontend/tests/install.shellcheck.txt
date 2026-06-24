@@ -1,0 +1,12 @@
+# Smoke / lint tests for install.sh
+# Run these manually or in CI to verify the script is correct.
+
+# 1. Bash syntax check (no execution)
+bash -n install.sh
+
+# 2. Shellcheck lint (requires shellcheck installed)
+shellcheck install.sh
+
+# Expected results:
+#   bash -n install.sh  → exits 0 (no output)
+#   shellcheck install.sh → exits 0 (no errors or warnings)
