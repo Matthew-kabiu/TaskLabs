@@ -29,6 +29,9 @@
       "@convex/_generated/api": [
         "./convex/_generated/api"
       ],
+      "@convex/_generated/dataModel": [
+        "./convex/_generated/dataModel"
+      ],
       "@convex/*": [
         "../backend/convex/*"
       ]
