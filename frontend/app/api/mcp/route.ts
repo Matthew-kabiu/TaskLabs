@@ -32,7 +32,9 @@ function requireEnv(name: string) {
 }
 
 function client() {
-  return new ConvexHttpClient(requireEnv('NEXT_PUBLIC_CONVEX_URL'));
+  return new ConvexHttpClient(requireEnv('CONVEX_SERVER_URL'), {
+    skipConvexDeploymentUrlCheck: true,
+  });
 }
 
 function json(body: unknown, status = 200, headers?: HeadersInit) {

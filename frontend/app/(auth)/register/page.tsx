@@ -1,10 +1,15 @@
 import { redirect } from 'next/navigation';
 import { fetchQuery } from 'convex/nextjs';
 import { BACKEND_ROUTES, ROUTES } from '@/lib/routes';
+import { convexServerOptions } from '@/lib/convex-server';
 import { RegisterForm } from './register-form';
 
 export default async function RegisterPage() {
-  const setting = (await fetchQuery(BACKEND_ROUTES.registration.status, {})) as {
+  const setting = (await fetchQuery(
+    BACKEND_ROUTES.registration.status,
+    {},
+    convexServerOptions(),
+  )) as {
     allowPublicRegistration: boolean;
   };
   if (!setting.allowPublicRegistration) redirect(ROUTES.app.registerClosed);

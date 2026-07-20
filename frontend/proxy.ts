@@ -18,7 +18,7 @@ export const proxy = convexAuthNextjsMiddleware(async (request, { convexAuth }) 
   const authed = await convexAuth.isAuthenticated();
   if (isAuthPage(request) && authed) return nextjsMiddlewareRedirect(request, "/tasks");
   if (isProtected(request) && !authed) return nextjsMiddlewareRedirect(request, "/login");
-});
+}, { convexUrl: process.env.CONVEX_SERVER_URL });
 
 export const config = {
   matcher: ["/((?!.*\\..*|_next).*)", "/", "/(api|trpc)(.*)"],

@@ -22,6 +22,7 @@ ENV NEXT_TURBOPACK_ROOT=$NEXT_TURBOPACK_ROOT
 COPY --from=deps /workspace/node_modules ./node_modules
 COPY --from=deps /workspace/frontend/node_modules ./frontend/node_modules
 COPY --from=deps /workspace/backend/node_modules ./backend/node_modules
+COPY --from=deps /workspace/backend/package.json ./backend/package.json
 COPY frontend ./frontend
 COPY backend/convex ./backend/convex
 WORKDIR /workspace/frontend
@@ -34,6 +35,8 @@ COPY --from=build /workspace/node_modules /workspace/node_modules
 COPY --from=build /workspace/frontend/node_modules ./node_modules
 COPY --from=build /workspace/backend/node_modules /workspace/backend/node_modules
 COPY --from=build /workspace/backend/convex /workspace/backend/convex
+COPY --from=build /workspace/backend/package.json /workspace/backend/package.json
+COPY backend/scripts /workspace/backend/scripts
 COPY --from=build /workspace/frontend/.next ./.next
 COPY --from=build /workspace/frontend/public ./public
 COPY --from=build /workspace/frontend/package.json ./package.json

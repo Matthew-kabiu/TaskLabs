@@ -3,6 +3,7 @@ import { CalendarDays, KanbanSquare, ListChecks } from 'lucide-react';
 import { fetchQuery } from 'convex/nextjs';
 import { redirect } from 'next/navigation';
 import { getLoginRedirectForFirstRun } from '@/lib/first-run-routing';
+import { convexServerOptions } from '@/lib/convex-server';
 import { BACKEND_ROUTES } from '@/lib/routes';
 import LoginForm from './login-form';
 
@@ -27,7 +28,11 @@ const FEATURES = [
 export const dynamic = 'force-dynamic';
 
 export default async function LoginPage() {
-  const setupStatus = (await fetchQuery(BACKEND_ROUTES.setup.status, {})) as {
+  const setupStatus = (await fetchQuery(
+    BACKEND_ROUTES.setup.status,
+    {},
+    convexServerOptions(),
+  )) as {
     setupNeeded: boolean;
   };
   const target = getLoginRedirectForFirstRun(setupStatus);

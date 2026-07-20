@@ -1,7 +1,8 @@
-name: tasklabs
+name: tasklabs-dev
 
 # Dev stack: same core services as production, with hot reload for the Next.js
-# frontend and Convex functions.
+# frontend and Convex functions. The distinct project name keeps dev containers
+# and named volumes isolated from the production stack.
 # Usage:
 #   docker compose --env-file .env.dev -f docker-compose.dev.yml up --build
 #
@@ -92,6 +93,7 @@ services:
     environment:
       - NODE_ENV=${FRONTEND_NODE_ENV:?missing}
       - NEXT_PUBLIC_CONVEX_URL=${NEXT_PUBLIC_CONVEX_URL:?missing}
+      - CONVEX_SERVER_URL=${CONVEX_SERVER_URL:?missing}
       - TELEGRAM_API_ORIGIN=${TELEGRAM_API_ORIGIN:?missing}
       - FRONTEND_ORIGIN=${FRONTEND_ORIGIN:?missing}
       - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:?missing}

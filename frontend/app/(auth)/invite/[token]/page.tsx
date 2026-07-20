@@ -1,5 +1,6 @@
 import { fetchQuery } from 'convex/nextjs';
 import { BACKEND_ROUTES, ROUTES } from '@/lib/routes';
+import { convexServerOptions } from '@/lib/convex-server';
 import { AcceptForm } from './accept-form';
 
 export const dynamic = 'force-dynamic';
@@ -10,7 +11,11 @@ export default async function InvitePage({ params }: Props) {
   const { token } = await params;
   let invite;
   try {
-    invite = await fetchQuery(BACKEND_ROUTES.invitations.validate, { token });
+    invite = await fetchQuery(
+      BACKEND_ROUTES.invitations.validate,
+      { token },
+      convexServerOptions(),
+    );
   } catch (e) {
     const message = e instanceof Error ? e.message.toLowerCase() : '';
     if (message.includes('expired')) {

@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { convexAuthNextjsToken } from '@convex-dev/auth/nextjs/server';
 import { fetchQuery } from 'convex/nextjs';
 import { BACKEND_ROUTES, ROUTES } from '@/lib/routes';
+import { convexServerOptions } from '@/lib/convex-server';
 import { AdminSettingsForm } from './admin-settings-form';
 
 export default async function AdminSettingsPage() {
@@ -10,10 +11,14 @@ export default async function AdminSettingsPage() {
   const profile = (await fetchQuery(
     BACKEND_ROUTES.profile.get,
     {},
-    { token },
+    convexServerOptions(token),
   )) as { platformRole: 'ADMIN' | 'MEMBER' };
   if (profile.platformRole !== 'ADMIN') redirect(ROUTES.app.home);
-  const setting = (await fetchQuery(BACKEND_ROUTES.settings.getSystem, {})) as {
+  const setting = (await fetchQuery(
+    BACKEND_ROUTES.settings.getSystem,
+    {},
+    convexServerOptions(),
+  )) as {
     allowPublicRegistration: boolean;
   };
 
