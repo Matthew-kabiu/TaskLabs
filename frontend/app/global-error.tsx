@@ -1,4 +1,7 @@
 'use client';
+import { useEffect } from 'react';
+import { ErrorFallback } from '@/components/error-fallback';
+
 export default function GlobalError({
   error,
   unstable_retry,
@@ -6,14 +9,14 @@ export default function GlobalError({
   error: Error;
   unstable_retry: () => void;
 }) {
+  useEffect(() => {
+    console.error(error);
+  }, [error]);
+
   return (
     <html>
-      <body>
-        <div style={{ padding: 32, fontFamily: 'system-ui' }}>
-          <h2>Application error</h2>
-          <p>{error.message}</p>
-          <button onClick={unstable_retry}>Reload</button>
-        </div>
+      <body className="bg-background text-foreground">
+        <ErrorFallback onRetry={unstable_retry} fullPage />
       </body>
     </html>
   );

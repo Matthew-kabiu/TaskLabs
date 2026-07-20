@@ -4,6 +4,7 @@ import { ThemeProvider } from 'next-themes';
 import { Toaster } from 'sonner';
 import { useEffect, type ReactNode } from 'react';
 import { ConvexClientProvider } from './ConvexClientProvider';
+import { AppErrorBoundary } from '@/components/error-boundary';
 
 // Silences a React 19 dev-only warning emitted by next-themes' inline
 // no-flash <script>. Remove once next-themes ships a React 19 fix.
@@ -34,7 +35,7 @@ export function Providers({ children }: { children: ReactNode }) {
         enableSystem
         disableTransitionOnChange
       >
-        {children}
+        <AppErrorBoundary>{children}</AppErrorBoundary>
         <Toaster richColors closeButton position="bottom-right" />
       </ThemeProvider>
     </ConvexClientProvider>

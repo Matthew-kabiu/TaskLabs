@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthActions } from '@convex-dev/auth/react';
 import { useConvexAuth, useMutation } from 'convex/react';
-import { ArrowLeft, ArrowRight, CheckCircle2, UserPlus } from 'lucide-react';
+import { AlertCircle, ArrowLeft, ArrowRight, CheckCircle2, UserPlus } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
@@ -23,6 +23,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { PasswordInput } from '@/components/ui/password-input';
 import { cn } from '@/lib/utils';
+import { getUserFacingError } from '@/lib/user-facing-error';
 
 type Step = 'account' | 'workspace' | 'done';
 type PendingClaim = Pick<SetupInput, 'name' | 'workspaceName'>;
@@ -47,6 +48,7 @@ export function SetupWizard() {
   const claimAdmin = useMutation(BACKEND_ROUTES.setup.claimAdmin);
   const [step, setStep] = useState<Step>('account');
   const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [pendingClaim, setPendingClaim] = useState<PendingClaim | null>(null);
   const claimInFlight = useRef(false);
   const idx = STEP_INDEX[step];
@@ -58,6 +60,7 @@ export function SetupWizard() {
   });
 
   async function handleAccountNext() {
+    setSubmitError(null);
     const ok = await form.trigger(['email', 'password', 'name']);
     if (ok) setStep('workspace');
   }
@@ -80,13 +83,17 @@ export function SetupWizard() {
           workspaceName: pendingClaim.workspaceName,
         });
       } catch (err) {
-        const message =
-          err instanceof Error ? err.message : 'Failed to create admin.';
-        if (message.toLowerCase().includes('setup already complete')) {
+        const rawMessage = err instanceof Error ? err.message : '';
+        if (rawMessage.toLowerCase().includes('setup already complete')) {
           toast.error('Setup already complete.');
           router.replace(ROUTES.app.login);
           return;
         }
+        const message = getUserFacingError(
+          err,
+          'We could not finish creating the workspace. Please try again.',
+        );
+        setSubmitError(message);
         toast.error(message);
         return;
       } finally {
@@ -102,6 +109,7 @@ export function SetupWizard() {
 
   async function handleSubmit(values: SetupInput) {
     setSubmitting(true);
+    setSubmitError(null);
     try {
       setPendingClaim({
         name: values.name,
@@ -116,12 +124,17 @@ export function SetupWizard() {
         if (!signUp.signingIn) throw new Error('Failed to create admin.');
       }
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to create admin.';
-      if (message.toLowerCase().includes('setup already complete')) {
+      const rawMessage = err instanceof Error ? err.message : '';
+      if (rawMessage.toLowerCase().includes('setup already complete')) {
         toast.error('Setup already complete.');
         router.replace(ROUTES.app.login);
         return;
       }
+      const message = getUserFacingError(
+        err,
+        'We could not create the admin account. Check your connection and try again.',
+      );
+      setSubmitError(message);
       toast.error(message);
       setPendingClaim(null);
       setSubmitting(false);
@@ -223,6 +236,19 @@ export function SetupWizard() {
           className="relative"
           noValidate
         >
+          {submitError && (
+            <div
+              role="alert"
+              aria-live="polite"
+              className="mb-6 flex gap-3 border border-destructive/30 bg-destructive/5 p-3 text-sm text-foreground"
+            >
+              <AlertCircle
+                className="mt-0.5 h-4 w-4 shrink-0 text-destructive"
+                aria-hidden
+              />
+              <p className="leading-5">{submitError}</p>
+            </div>
+          )}
           <AnimatePresence mode="wait">
             {step === 'account' && (
               <motion.div
