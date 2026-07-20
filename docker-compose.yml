@@ -89,8 +89,8 @@ services:
       - FRONTEND_HOST=${FRONTEND_HOST:?missing}
       - FRONTEND_INTERNAL_PORT=${FRONTEND_INTERNAL_PORT:?missing}
     depends_on:
-      backend:
-        condition: service_healthy
+      convex-deploy:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:' + process.env.FRONTEND_INTERNAL_PORT + '/api/health').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))\""]
       interval: 10s
@@ -100,15 +100,16 @@ services:
 
   convex-deploy:
     image: tasklabs-frontend
-    profiles: ["deploy"]
+    restart: "no"
     working_dir: /workspace/backend
     command:
       - sh
       - -c
-      - node scripts/syncDeploymentEnv.mjs && node /workspace/frontend/node_modules/convex/bin/main.js deploy --typecheck disable
+      - mkdir -p "$${CONVEX_TMPDIR}" && node scripts/syncDeploymentEnv.mjs && node /workspace/frontend/node_modules/convex/bin/main.js deploy --typecheck disable
     environment:
       - CONVEX_SELF_HOSTED_URL=http://backend:${CONVEX_API_INTERNAL_PORT:?missing}
       - CONVEX_SELF_HOSTED_ADMIN_KEY=${CONVEX_SELF_HOSTED_ADMIN_KEY:?missing}
+      - CONVEX_TMPDIR=${CONVEX_TMPDIR:?missing}
       - SITE_URL=${SITE_URL:?missing}
       - JWT_PRIVATE_KEY=${JWT_PRIVATE_KEY:?missing}
       - JWKS=${JWKS:?missing}
