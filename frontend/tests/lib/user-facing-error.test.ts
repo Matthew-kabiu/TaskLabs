@@ -22,6 +22,22 @@ describe('getUserFacingError', () => {
     );
   });
 
+  it('keeps Telegram recovery steps while hiding Convex details', () => {
+    const missingStart = new Error(
+      '[CONVEX A(telegram:linkChatFromStart)] [Request ID: abc] Server Error Uncaught Error: No /start message found. Send /start to your bot. at handler (convex/telegram.ts:223:10)',
+    );
+    const notLinked = new Error(
+      '[CONVEX A(telegram:sendTest)] [Request ID: def] Server Error Uncaught Error: Bot not linked: send /start to your bot first.',
+    );
+
+    expect(getUserFacingError(missingStart)).toBe(
+      'Open your Telegram bot, send /start, then try linking the chat again.',
+    );
+    expect(getUserFacingError(notLinked)).toBe(
+      'Link your Telegram chat before sending a test message.',
+    );
+  });
+
   it('uses the supplied safe fallback for unknown errors', () => {
     expect(getUserFacingError(new Error('sensitive internal detail'), 'Try later.')).toBe(
       'Try later.',

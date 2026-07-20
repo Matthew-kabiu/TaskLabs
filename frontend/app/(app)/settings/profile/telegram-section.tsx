@@ -28,6 +28,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { BACKEND_ROUTES } from '@/lib/routes';
+import { getUserFacingError } from '@/lib/user-facing-error';
 import { cn } from '@/lib/utils';
 import {
   TASK_LEAD_PRESETS,
@@ -111,7 +112,7 @@ export function TelegramSection({ user }: Props) {
       setShowLink(!data.chatLinked);
       router.refresh();
     } catch (err) {
-      toast.error((err as Error).message);
+      toast.error(getUserFacingError(err, 'Could not save the bot token.'));
     } finally {
       setSavingToken(false);
     }
@@ -129,7 +130,7 @@ export function TelegramSection({ user }: Props) {
       setShowLink(false);
       router.refresh();
     } catch (err) {
-      toast.error((err as Error).message);
+      toast.error(getUserFacingError(err, 'Could not remove the bot token.'));
     } finally {
       setSavingToken(false);
     }
@@ -140,7 +141,7 @@ export function TelegramSection({ user }: Props) {
       await sendTest({});
       toast.success('Test sent.');
     } catch (err) {
-      toast.error((err as Error).message);
+      toast.error(getUserFacingError(err, 'Could not send the test message.'));
     }
   }
 
@@ -154,7 +155,7 @@ export function TelegramSection({ user }: Props) {
       setShowLink(!data.chatLinked);
       router.refresh();
     } catch (err) {
-      toast.error((err as Error).message);
+      toast.error(getUserFacingError(err, 'Could not link your Telegram chat.'));
     } finally {
       setLinkingChat(false);
     }
@@ -174,7 +175,7 @@ export function TelegramSection({ user }: Props) {
       }
       setRevealed(`••••••••${tokenSummary.suffix ?? ''}`);
     } catch (err) {
-      toast.error((err as Error).message);
+      toast.error(getUserFacingError(err, 'Could not check the bot token.'));
     } finally {
       setRevealing(false);
     }
@@ -191,7 +192,7 @@ export function TelegramSection({ user }: Props) {
       });
       toast.success('Lead times updated.');
     } catch (err) {
-      toast.error((err as Error).message);
+      toast.error(getUserFacingError(err, 'Could not update reminder timing.'));
     } finally {
       setSavingLeads(false);
     }

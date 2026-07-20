@@ -30,6 +30,21 @@ export function getUserFacingError(
     return 'Too many attempts. Wait a moment, then try again.';
   }
 
+  if (normalized.includes('no /start message found')) {
+    return 'Open your Telegram bot, send /start, then try linking the chat again.';
+  }
+
+  if (normalized.includes('bot not linked')) {
+    return 'Link your Telegram chat before sending a test message.';
+  }
+
+  if (
+    normalized.includes('invalid bot token') ||
+    normalized.includes('unauthorized')
+  ) {
+    return 'Telegram rejected this bot token. Check it in BotFather and try again.';
+  }
+
   if (
     normalized.includes('missing environment variable') ||
     normalized.includes('server error') ||
