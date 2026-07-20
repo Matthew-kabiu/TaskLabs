@@ -8,6 +8,7 @@ const requiredDeploymentEnv = [
   "JWT_PRIVATE_KEY",
   "JWKS",
   "TELEGRAM_API_ORIGIN",
+  "TELEGRAM_CHAT_ID",
 ];
 
 const optionalDeploymentEnv = ["TELEGRAM_WEBHOOK_ORIGIN"];

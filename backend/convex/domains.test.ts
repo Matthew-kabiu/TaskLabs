@@ -65,6 +65,7 @@ async function getUserSession(
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
 });
 
 describe("Convex backend domain ports", () => {
@@ -332,5 +333,29 @@ describe("Convex backend domain ports", () => {
       allowed_updates: ["message"],
     });
     expect(setWebhookBody.secret_token).toEqual(expect.any(String));
+  });
+
+  test("telegram link action uses the configured chat ID when provided", async () => {
+    vi.stubEnv("TELEGRAM_CHAT_ID", "5652087033");
+    const t = convexTest(schema, modules);
+    const userId = await seedUser(t, {
+      email: "telegram-env@example.com",
+      name: "Telegram Env",
+    });
+    const asUser = t.withIdentity({
+      subject: userId,
+      email: "telegram-env@example.com",
+    });
+    await asUser.mutation(apiAny.telegram.saveToken, {
+      token: "123456789:ABCDEFGHIJKLMNOPQRSTUVWXYZabcd",
+    });
+
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    await asUser.action(apiAny.telegram.linkChatFromStart, {});
+
+    const config = await asUser.query(apiAny.telegram.tokenSummary, {});
+    expect(config).toMatchObject({ hasToken: true, chatLinked: true });
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

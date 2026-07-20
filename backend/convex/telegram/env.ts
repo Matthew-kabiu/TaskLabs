@@ -30,3 +30,12 @@ export function telegramApiOrigin() {
 export function telegramWebhookOrigin() {
   return requiredHttpsOrigin("TELEGRAM_WEBHOOK_ORIGIN");
 }
+
+export function configuredTelegramChatId() {
+  const value = process.env.TELEGRAM_CHAT_ID?.trim();
+  if (value === undefined || value.length === 0) return undefined;
+  if (!/^-?\d+$/.test(value)) {
+    throw new Error("TELEGRAM_CHAT_ID must be a numeric Telegram chat ID");
+  }
+  return value;
+}

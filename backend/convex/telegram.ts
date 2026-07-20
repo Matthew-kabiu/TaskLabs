@@ -20,7 +20,11 @@ import {
   decryptTelegramToken,
   encryptTelegramToken,
 } from "./telegram/crypto";
-import { telegramApiOrigin, telegramWebhookOrigin } from "./telegram/env";
+import {
+  configuredTelegramChatId,
+  telegramApiOrigin,
+  telegramWebhookOrigin,
+} from "./telegram/env";
 
 function makeWebhookSecret() {
   const bytes = new Uint8Array(24);
@@ -192,6 +196,16 @@ export const linkChatFromStart = action({
     if (config?.token === undefined) {
       throw new Error("Save your bot token first");
     }
+
+    const configuredChatId = configuredTelegramChatId();
+    if (configuredChatId !== undefined) {
+      await ctx.runMutation(internalApi.telegram.acceptWebhookStart, {
+        userId,
+        chatId: configuredChatId,
+      });
+      return { hasToken: true, chatLinked: true, suffix: config.suffix };
+    }
+
     if (config.webhookSecret === undefined) {
       throw new Error("Save your bot token again to create webhook settings");
     }

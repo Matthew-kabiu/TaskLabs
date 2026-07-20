@@ -115,6 +115,7 @@ services:
       - JWKS=${JWKS:?missing}
       - TELEGRAM_API_ORIGIN=${TELEGRAM_API_ORIGIN:?missing}
       - TELEGRAM_WEBHOOK_ORIGIN=${TELEGRAM_WEBHOOK_ORIGIN}
+      - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID:-${BACKUP_TELEGRAM_CHAT_ID:?missing}}
     depends_on:
       backend:
         condition: service_healthy
