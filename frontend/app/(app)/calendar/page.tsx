@@ -20,8 +20,40 @@ import { Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, startOfDay, isBefore } from 'date-fns';
 import { CalendarNotesPanel } from '@/components/calendar/notes-panel';
+import { ROUTES } from '@/lib/routes';
+
+/**
+ * Reads the `?event=ID` deep-link parameter.
+ *
+ * `useSearchParams` forces everything up to the nearest Suspense boundary to be
+ * client-side rendered, so it is isolated here and mounted inside `<Suspense>`.
+ * That keeps the rest of the calendar prerenderable. It renders nothing.
+ */
+function EventDeepLink({
+  events,
+  onOpen,
+}: {
+  events: CalendarEventDTO[] | undefined;
+  onOpen: (event: CalendarEventDTO) => void;
+}) {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+  const eventIdParam = searchParams.get('event');
+
+  React.useEffect(() => {
+    if (!eventIdParam || !events) return;
+    const found = events.find((e) => e.id === eventIdParam);
+    if (!found) return;
+    onOpen(found);
+    router.replace(pathname, { scroll: false });
+  }, [eventIdParam, events, onOpen, router, pathname]);
+
+  return null;
+}
 
 export default function CalendarPage() {
+  const router = useRouter();
   const [view, setView] = React.useState<CalendarView>('month');
   const [cursor, setCursor] = React.useState<Date>(new Date());
   const [modalOpen, setModalOpen] = React.useState(false);
@@ -35,23 +67,11 @@ export default function CalendarPage() {
   const toggleComplete = useToggleEventComplete();
 
   // Deep-link: open event modal when arriving with ?event=ID (e.g. from dashboard).
-  const searchParams = useSearchParams();
-  const router = useRouter();
-  const pathname = usePathname();
-  const eventIdParam = searchParams.get('event');
-  React.useEffect(() => {
-    if (!eventIdParam || !eventsQ.data) return;
-    const found = eventsQ.data.find((e) => e.id === eventIdParam);
-    if (!found) return;
-    // Deep-link from URL: this is a one-shot side effect (we strip the param
-    // immediately after) and is the canonical use case for setState in an
-    // effect — synchronising React with an external system (the URL).
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setEditing(found);
+  const openDeepLinkedEvent = React.useCallback((event: CalendarEventDTO) => {
+    setEditing(event);
     setDefaultStart(undefined);
     setModalOpen(true);
-    router.replace(pathname, { scroll: false });
-  }, [eventIdParam, eventsQ.data, router, pathname]);
+  }, []);
 
   const navigate = (dir: 'prev' | 'next') => {
     const sign = dir === 'next' ? 1 : -1;
@@ -75,9 +95,14 @@ export default function CalendarPage() {
     setDefaultStart(d);
     setModalOpen(true);
   };
-  const onSelectTask = (id: string) => {
-    window.location.href = `/tasks/${id}`;
-  };
+  // Uses the central route registry and the Next router instead of a hardcoded
+  // path + full document navigation (SOP §2: routes are centralized).
+  const onSelectTask = React.useCallback(
+    (id: string) => {
+      router.push(ROUTES.app.task(id));
+    },
+    [router],
+  );
 
   const onAddEvent = () => {
     setEditing(null);
@@ -118,6 +143,9 @@ export default function CalendarPage() {
 
   return (
     <div className="flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden">
+      <React.Suspense fallback={null}>
+        <EventDeepLink events={eventsQ.data} onOpen={openDeepLinkedEvent} />
+      </React.Suspense>
       <div className="flex shrink-0 items-center justify-between gap-2 border-b px-3 py-2 sm:gap-4 sm:px-4 sm:py-3">
         <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-4">
           <CalendarHeader

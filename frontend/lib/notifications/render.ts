@@ -13,6 +13,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { ROUTES } from '@/lib/routes';
+import { formatDateTime } from '@/lib/datetime';
 
 export type NotificationLike = {
   type: string;
@@ -46,12 +47,7 @@ function leadLabel(value: unknown): string {
 
 function fmtTime(iso: unknown): string {
   if (typeof iso !== 'string') return '';
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return '';
-  return date.toLocaleString(undefined, {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  });
+  return formatDateTime(iso, 'datetime');
 }
 
 export function renderNotification(n: NotificationLike): NotificationView {

@@ -489,6 +489,8 @@ function LeadColumn(props: {
 }) {
   const { label, sub, options, selected, useDefaults, onToggleUseDefaults, onToggle, activeClassName, hoverClassName } = props;
   const switchId = `lead-defaults-${label.toLowerCase().replace(/\s+/g, '-')}`;
+  // Set lookup keeps the options render O(n) instead of O(n*m).
+  const selectedSet = new Set(selected);
   return (
     <div className="space-y-3">
       <div className="flex items-start justify-between gap-3">
@@ -512,7 +514,7 @@ function LeadColumn(props: {
       </div>
       <div className={cn('flex flex-wrap gap-2', useDefaults && 'opacity-60')}>
         {options.map((m) => {
-          const active = useDefaults || selected.includes(m);
+          const active = useDefaults || selectedSet.has(m);
           return (
             <Badge
               key={m}

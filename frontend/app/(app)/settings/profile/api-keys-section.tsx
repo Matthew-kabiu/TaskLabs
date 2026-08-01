@@ -4,6 +4,7 @@ import * as React from 'react';
 import { useMutation, useQuery } from 'convex/react';
 import type { Id } from '@convex/_generated/dataModel';
 import { toast } from 'sonner';
+import { formatDateTime } from '@/lib/datetime';
 import {
   Copy,
   KeyRound,
@@ -113,10 +114,7 @@ type CreatedKey = ApiKeyRow & { token: string };
 
 function formatDate(value: string | null) {
   if (value === null) return 'Never';
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(new Date(value));
+  return formatDateTime(value, 'datetime');
 }
 
 function scopeLabel(scope: string) {

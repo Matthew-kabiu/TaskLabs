@@ -1,6 +1,7 @@
 'use client';
 
 import { ThemeProvider } from 'next-themes';
+import { LazyMotion, MotionConfig, domAnimation } from 'framer-motion';
 import { Toaster } from 'sonner';
 import { useEffect, type ReactNode } from 'react';
 import { ConvexClientProvider } from './ConvexClientProvider';
@@ -35,7 +36,23 @@ export function Providers({ children }: { children: ReactNode }) {
         enableSystem
         disableTransitionOnChange
       >
-        <AppErrorBoundary>{children}</AppErrorBoundary>
+        {/*
+          `reducedMotion="user"` makes every Framer Motion animation honor the
+          OS-level reduce-motion setting. Paired with the CSS media query in
+          globals.css, this covers both motion systems the app uses.
+        */}
+        {/*
+          `LazyMotion` + the `m` component ships only the `domAnimation` feature
+          set (~15kb smaller than importing `motion` directly, which pulls the
+          full animation runtime into every bundle that touches it). `strict`
+          makes any stray `motion.*` import fail loudly instead of silently
+          re-inflating the bundle.
+        */}
+        <LazyMotion features={domAnimation} strict>
+          <MotionConfig reducedMotion="user">
+            <AppErrorBoundary>{children}</AppErrorBoundary>
+          </MotionConfig>
+        </LazyMotion>
         <Toaster richColors closeButton position="bottom-right" />
       </ThemeProvider>
     </ConvexClientProvider>

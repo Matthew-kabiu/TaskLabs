@@ -5,10 +5,14 @@ import { CalendarDays, ListChecks, ArrowUpRight } from 'lucide-react';
 import { ROUTES } from '@/lib/routes';
 import { EmptyState } from '@/components/empty-state';
 import { cn } from '@/lib/utils';
+import { useNow } from '@/hooks/useNow';
 
 type Item = { kind: 'task' | 'event'; id: string; title: string; at: string };
 
 export function NextSevenDays({ items }: { items: Item[] }) {
+  // Declared before the early return so hook order stays stable.
+  const now = useNow();
+
   if (items.length === 0) {
     return (
       <div className="rounded-lg border border-border/60 p-4">
@@ -35,7 +39,9 @@ export function NextSevenDays({ items }: { items: Item[] }) {
           return (
             <li key={day}>
               <div className="mb-2 font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
-                {isSameDay(d, new Date()) ? 'Today' : format(d, 'EEE, MMM d')}
+                {now !== null && isSameDay(d, now)
+                  ? 'Today'
+                  : format(d, 'EEE, MMM d')}
               </div>
               <ul className="space-y-1">
                 {list.map((i) => {

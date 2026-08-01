@@ -211,6 +211,12 @@ export async function POST(request: Request) {
 
   const requests = Array.isArray(body) ? body : [body];
   const results = [];
+  // Batch entries are dispatched sequentially on purpose. JSON-RPC 2.0 permits
+  // concurrent processing, but a batch here may carry dependent mutations
+  // (create a task, then update it), and every dispatch passes through the
+  // fail-closed Convex rate limiter — running them in parallel would make both
+  // ordering and rate-limit outcomes nondeterministic. Do not convert this to
+  // Promise.all.
   for (const item of requests) {
     if (!isJsonRpcRequest(item)) {
       results.push(jsonRpcError(null, -32600, 'Invalid Request'));

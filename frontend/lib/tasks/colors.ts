@@ -8,14 +8,3 @@ export const PRIORITY_COLORS: Record<Priority, string> = {
   HIGH: '#f59e0b',    // amber-500
   URGENT: '#ef4444',  // red-500
 };
-
-export const LABEL_PALETTE = [
-  '#ef4444', // red
-  '#f59e0b', // amber
-  '#10b981', // emerald
-  '#3b82f6', // blue
-  '#8b5cf6', // violet
-  '#ec4899', // pink
-  '#14b8a6', // teal
-  '#64748b', // slate
-] as const;

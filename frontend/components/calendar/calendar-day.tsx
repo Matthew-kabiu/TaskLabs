@@ -11,6 +11,7 @@ import { EventChip } from './event-chip';
 import type { CalendarEventDTO } from '@/hooks/useEvents';
 import type { TaskInRangeDTO } from '@/hooks/useTasksInRange';
 import { cn } from '@/lib/utils';
+import { useNow } from '@/hooks/useNow';
 
 const HOUR_PX = 64;
 
@@ -35,6 +36,7 @@ export function CalendarDay({
   onDeleteEvent,
   onToggleComplete,
 }: Props) {
+  const now = useNow();
   const hours = Array.from({ length: 24 }, (_, i) => i);
   const dayStart = startOfDay(cursor);
   const dayEvents = events.filter((e) =>
@@ -61,7 +63,7 @@ export function CalendarDay({
           <div
             className={cn(
               'flex h-12 w-12 items-center justify-center rounded-full text-xl font-semibold',
-              isSameDay(cursor, new Date())
+              now !== null && isSameDay(cursor, now)
                 ? 'bg-primary text-primary-foreground'
                 : '',
             )}

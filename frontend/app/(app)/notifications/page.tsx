@@ -7,6 +7,7 @@ import { useNotifications } from '@/hooks/useNotifications';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { renderNotification, TONE_CLASSES } from '@/lib/notifications/render';
+import { DateTime } from '@/components/ui/date-time';
 
 export default function NotificationsPage() {
   const { notifications, unreadCount, markRead, markAllRead, isLoading } = useNotifications();
@@ -100,12 +101,10 @@ export default function NotificationsPage() {
                       {view.subtitle}
                     </p>
                   )}
-                  <p className="mt-1 text-[11px] text-muted-foreground">
-                    {new Date(n.createdAt).toLocaleString(undefined, {
-                      dateStyle: 'medium',
-                      timeStyle: 'short',
-                    })}
-                  </p>
+                  <DateTime
+                    value={n.createdAt}
+                    className="mt-1 block text-[11px] text-muted-foreground"
+                  />
                 </div>
                 {!n.readAt && (
                   <Button

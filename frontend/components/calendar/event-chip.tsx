@@ -55,7 +55,7 @@ export function EventChip({
         data-completed={isCompleted ? 'true' : undefined}
         onClick={onClick}
         className={cn(
-          'flex w-full items-center gap-1.5 truncate rounded-md px-2 py-1 text-left text-xs font-medium transition-all hover:scale-[1.02] hover:shadow-sm',
+          'flex w-full items-center gap-1.5 truncate rounded-md px-2 py-1 text-left text-xs font-medium transition-[transform,box-shadow] hover:scale-[1.02] hover:shadow-sm',
           isSolid
             ? 'text-white'
             : 'border border-dashed bg-transparent text-foreground',
@@ -90,6 +90,7 @@ export function EventChip({
           <DropdownMenuTrigger asChild>
             <button
               type="button"
+              aria-label={`Actions for ${title}`}
               className="absolute right-1 top-1/2 -translate-y-1/2 rounded p-0.5 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-black/20"
               onClick={(e) => e.stopPropagation()}
             >

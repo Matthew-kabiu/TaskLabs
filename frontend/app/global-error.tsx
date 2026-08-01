@@ -14,7 +14,7 @@ export default function GlobalError({
   }, [error]);
 
   return (
-    <html>
+    <html lang="en">
       <body className="bg-background text-foreground">
         <ErrorFallback onRetry={unstable_retry} fullPage />
       </body>

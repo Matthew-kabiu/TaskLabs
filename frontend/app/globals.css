@@ -86,3 +86,24 @@
   --font-sans: var(--font-sans);
   --font-mono: var(--font-mono);
 }
+
+/*
+ * Respect the operating-system "reduce motion" preference (WCAG 2.3.3).
+ *
+ * The app uses CSS transitions, Tailwind animation utilities, and Framer
+ * Motion. Framer Motion reads this same media query internally when
+ * `MotionConfig reducedMotion="user"` is set (see app/providers), while the
+ * rules below neutralize CSS-driven motion. Motion is reduced to a 1ms
+ * near-instant transition rather than removed outright so that
+ * transition-completion events still fire and dependent UI does not stall.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+    scroll-behavior: auto !important;
+  }
+}

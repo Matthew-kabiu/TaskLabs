@@ -5,11 +5,11 @@ export const PriorityEnum = z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']);
 export const TaskSortEnum = z.enum(['manual', 'dueDate', 'priority', 'createdAt', 'title']);
 
 const isoToDate = z
-  .union([z.string().datetime({ offset: true }), z.date()])
+  .union([z.iso.datetime({ offset: true }), z.date()])
   .transform((v) => (v instanceof Date ? v : new Date(v)));
 
 const nullableIsoToDate = z
-  .union([z.string().datetime({ offset: true }), z.date(), z.null()])
+  .union([z.iso.datetime({ offset: true }), z.date(), z.null()])
   .transform((v) => (v == null ? null : v instanceof Date ? v : new Date(v)));
 
 export const createTaskSchema = z.object({
@@ -60,7 +60,7 @@ export const listTasksQuerySchema = z.object({
   priority: PriorityEnum.optional(),
   q: z.string().trim().min(1).max(200).optional(),
   sort: TaskSortEnum.default('manual'),
-  dueFrom: z.string().datetime({ offset: true }).optional(),
-  dueTo: z.string().datetime({ offset: true }).optional(),
+  dueFrom: z.iso.datetime({ offset: true }).optional(),
+  dueTo: z.iso.datetime({ offset: true }).optional(),
 });
 export type ListTasksQuery = z.infer<typeof listTasksQuerySchema>;

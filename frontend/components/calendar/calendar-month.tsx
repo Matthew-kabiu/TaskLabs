@@ -6,6 +6,7 @@ import { EventChip } from './event-chip';
 import type { CalendarEventDTO } from '@/hooks/useEvents';
 import type { TaskInRangeDTO } from '@/hooks/useTasksInRange';
 import { cn } from '@/lib/utils';
+import { useNow } from '@/hooks/useNow';
 
 interface Props {
   cursor: Date;
@@ -19,6 +20,8 @@ interface Props {
   onToggleComplete?: (id: string) => void;
 }
 
+const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
 export function CalendarMonth({
   cursor,
   events,
@@ -30,9 +33,9 @@ export function CalendarMonth({
   onDeleteEvent,
   onToggleComplete,
 }: Props) {
-  const today = startOfDay(new Date());
+  const now = useNow();
+  const today = now === null ? null : startOfDay(now);
   const days = monthGridDays(cursor);
-  const dayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
   const eventsByDay = new Map<string, CalendarEventDTO[]>();
   for (const e of events) {
@@ -53,7 +56,7 @@ export function CalendarMonth({
   return (
     <div className="flex h-full w-full flex-col">
       <div className="grid grid-cols-7 border-b px-2 py-2 sm:px-6 sm:py-4">
-        {dayLabels.map((l) => (
+        {DAY_LABELS.map((l) => (
           <div key={l} className="px-1 py-1 text-[10px] font-semibold uppercase text-muted-foreground sm:px-3 sm:py-2 sm:text-xs">
             {l}
           </div>
@@ -64,8 +67,8 @@ export function CalendarMonth({
           {days.map((d) => {
             const key = format(d, 'yyyy-MM-dd');
             const isOther = !isSameMonth(d, cursor);
-            const isToday = isSameDay(d, new Date());
-            const isPast = isBefore(startOfDay(d), today);
+            const isToday = now !== null && isSameDay(d, now);
+            const isPast = today !== null && isBefore(startOfDay(d), today);
             const dayEvents = eventsByDay.get(key) ?? [];
             const dayTasks = tasksByDay.get(key) ?? [];
             return (
@@ -101,7 +104,7 @@ export function CalendarMonth({
                 </button>
                 <div className="flex flex-col gap-0.5 overflow-hidden sm:gap-1">
                   {dayEvents.slice(0, 3).map((e) => {
-                    const isOverdue = new Date(e.endAt) < new Date();
+                    const isOverdue = now !== null && new Date(e.endAt) < now;
                     const isCompleted = e.status === 'COMPLETED';
                     return (
                       <EventChip

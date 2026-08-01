@@ -44,6 +44,14 @@ import { useNotifications } from '@/hooks/useNotifications';
 import { ROUTES } from '@/lib/routes';
 import { cn } from '@/lib/utils';
 
+// Static across every render — hoisted so the array and its element objects
+// keep a stable identity.
+const NAV_ITEMS = [
+  { href: ROUTES.app.home, icon: LayoutDashboard, label: 'Dashboard' },
+  { href: ROUTES.app.tasks, icon: CheckSquare, label: 'Tasks' },
+  { href: ROUTES.app.calendar, icon: Calendar, label: 'Calendar' },
+] as const;
+
 interface ResponsiveSidebarProps {
   workspaces: { id: string; name: string; isPersonal: boolean }[];
   activeWorkspaceId: string;
@@ -60,12 +68,6 @@ export function ResponsiveSidebar({
   const { unreadCount } = useNotifications();
   const [isCollapsed, setIsCollapsed] = React.useState(true);
   const [mobileOpen, setMobileOpen] = React.useState(false);
-
-  const navItems = [
-    { href: ROUTES.app.home, icon: LayoutDashboard, label: 'Dashboard' },
-    { href: ROUTES.app.tasks, icon: CheckSquare, label: 'Tasks' },
-    { href: ROUTES.app.calendar, icon: Calendar, label: 'Calendar' },
-  ];
 
   const handleSignOut = async () => {
     await signOut();
@@ -131,7 +133,7 @@ export function ResponsiveSidebar({
 
       {/* Main navigation */}
       <nav className="flex flex-1 flex-col gap-1 p-4">
-        {navItems.map((item) => (
+        {NAV_ITEMS.map((item) => (
           <Tooltip key={item.href}>
             <TooltipTrigger asChild>
               <a
@@ -286,7 +288,7 @@ export function ResponsiveSidebar({
 
         {/* Mobile Bottom Navigation */}
         <nav className="fixed bottom-0 left-0 right-0 z-40 flex h-16 items-center justify-around border-t bg-background md:hidden">
-          {navItems.map((item) => (
+          {NAV_ITEMS.map((item) => (
             <a
               key={item.href}
               href={item.href}
@@ -298,7 +300,11 @@ export function ResponsiveSidebar({
           ))}
           <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
             <SheetTrigger asChild>
-              <button className="flex flex-col items-center justify-center gap-1 rounded-lg px-3 py-2 text-xs font-medium text-muted-foreground hover:text-foreground">
+              <button
+                type="button"
+                aria-label="Open navigation menu"
+                className="flex flex-col items-center justify-center gap-1 rounded-lg px-3 py-2 text-xs font-medium text-muted-foreground hover:text-foreground"
+              >
                 <Settings className="h-5 w-5" />
                 <span>Settings</span>
               </button>

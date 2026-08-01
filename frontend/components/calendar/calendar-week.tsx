@@ -12,6 +12,7 @@ import { EventChip } from './event-chip';
 import type { CalendarEventDTO } from '@/hooks/useEvents';
 import type { TaskInRangeDTO } from '@/hooks/useTasksInRange';
 import { cn } from '@/lib/utils';
+import { useNow } from '@/hooks/useNow';
 
 const HOUR_PX = 56;
 
@@ -36,6 +37,7 @@ export function CalendarWeek({
   onDeleteEvent,
   onToggleComplete,
 }: Props) {
+  const now = useNow();
   const days = weekDays(cursor);
   const hours = Array.from({ length: 24 }, (_, i) => i);
 
@@ -44,7 +46,7 @@ export function CalendarWeek({
       <div className="grid grid-cols-[3.5rem_repeat(7,1fr)] border-b">
         <div />
         {days.map((d) => {
-          const isToday = isSameDay(d, new Date());
+          const isToday = now !== null && isSameDay(d, now);
           return (
             <div key={d.toISOString()} className="px-1 py-3 md:px-2">
               <div className="text-center">
@@ -93,7 +95,7 @@ export function CalendarWeek({
               const dayTasks = tasks.filter(
                 (t) => t.dueDate && isSameDay(parseISO(t.dueDate), d),
               );
-              const isToday = isSameDay(d, new Date());
+              const isToday = now !== null && isSameDay(d, now);
               return (
                 <div
                   key={d.toISOString()}

@@ -11,6 +11,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { useNotifications } from '@/hooks/useNotifications';
 import { renderNotification, TONE_CLASSES } from '@/lib/notifications/render';
+import { DateTime } from '@/components/ui/date-time';
 import { cn } from '@/lib/utils';
 
 export function NotificationBell() {
@@ -61,10 +62,9 @@ export function NotificationBell() {
               const inner = (
                 <div
                   className={cn(
-                    'flex cursor-pointer items-start gap-2.5 px-3 py-2.5 hover:bg-accent',
+                    'flex items-start gap-2.5 px-3 py-2.5',
                     n.readAt && 'opacity-60',
                   )}
-                  onClick={() => !n.readAt && markRead(n.id)}
                 >
                   <span
                     className={cn(
@@ -89,15 +89,33 @@ export function NotificationBell() {
                         {view.subtitle}
                       </div>
                     )}
-                    <div className="mt-0.5 text-[11px] text-muted-foreground">
-                      {new Date(n.createdAt).toLocaleString()}
-                    </div>
+                    <DateTime
+                      value={n.createdAt}
+                      className="mt-0.5 block text-[11px] text-muted-foreground"
+                    />
                   </div>
                 </div>
               );
               return (
                 <li key={n.id}>
-                  {view.href ? <Link href={view.href}>{inner}</Link> : inner}
+                  {view.href ? (
+                    <Link
+                      href={view.href}
+                      onClick={() => !n.readAt && markRead(n.id)}
+                      className="block hover:bg-accent"
+                    >
+                      {inner}
+                    </Link>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => !n.readAt && markRead(n.id)}
+                      disabled={Boolean(n.readAt)}
+                      className="block w-full text-left hover:bg-accent disabled:cursor-default"
+                    >
+                      {inner}
+                    </button>
+                  )}
                 </li>
               );
             })}

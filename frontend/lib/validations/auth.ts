@@ -1,6 +1,13 @@
 import { z } from 'zod';
 
-export const emailSchema = z.string().trim().toLowerCase().email('Invalid email');
+// Zod 4 deprecates the `.email()` method in favour of the top-level `z.email()`
+// format schema. Normalization still has to run first, so the string schema is
+// piped into the format check.
+export const emailSchema = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .pipe(z.email('Invalid email'));
 export const passwordSchema = z
   .string()
   .min(8, 'Password must be at least 8 characters')
@@ -27,8 +34,3 @@ export const loginSchema = z.object({
   password: z.string().min(1, 'Password is required'),
 });
 export type LoginInput = z.infer<typeof loginSchema>;
-
-export const systemSettingsPatchSchema = z.object({
-  allowPublicRegistration: z.boolean(),
-});
-export type SystemSettingsPatch = z.infer<typeof systemSettingsPatchSchema>;
