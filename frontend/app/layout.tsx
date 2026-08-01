@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Outfit, JetBrains_Mono } from 'next/font/google';
 import { ConvexAuthNextjsServerProvider } from '@convex-dev/auth/nextjs/server';
 import { Providers } from './providers';
+import { siteMetadataBase } from '@/lib/site';
 import './globals.css';
 
 const outfit = Outfit({
@@ -19,6 +20,7 @@ const mono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: siteMetadataBase() ?? undefined,
   title: 'TaskLabs',
   description: 'Multi-tenant task and calendar manager.',
 };

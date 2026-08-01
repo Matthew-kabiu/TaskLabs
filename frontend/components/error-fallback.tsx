@@ -1,7 +1,9 @@
 'use client';
 
+import Link from 'next/link';
 import { AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { ROUTES } from '@/lib/routes';
 
 export function ErrorFallback({
   onRetry,
@@ -28,9 +30,14 @@ export function ErrorFallback({
           TaskLabs could not load this view. Your data is safe. Try again, or
           reload the page if the problem continues.
         </p>
-        <Button className="mt-6" size="sm" onClick={onRetry}>
-          Try again
-        </Button>
+        <div className="mt-6 flex flex-wrap items-center gap-3">
+          <Button size="sm" onClick={onRetry}>
+            Try again
+          </Button>
+          <Button asChild variant="outline" size="sm">
+            <Link href={ROUTES.app.landing}>Back to home</Link>
+          </Button>
+        </div>
       </div>
     </section>
   );

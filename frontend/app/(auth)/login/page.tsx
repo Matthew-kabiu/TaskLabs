@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import { getLoginRedirectForFirstRun } from '@/lib/first-run-routing';
 import { convexServerOptions } from '@/lib/convex-server';
 import { BACKEND_ROUTES } from '@/lib/routes';
+import { BackToHome } from '@/components/back-to-home';
 import LoginForm from './login-form';
 
 const FEATURES = [
@@ -149,6 +150,9 @@ export default async function LoginPage() {
             className="pointer-events-none absolute inset-y-0 left-14 hidden w-px bg-gradient-to-b from-transparent via-border to-transparent md:block"
           />
           <div className="relative w-full max-w-[440px]">
+            <div className="mb-6 flex justify-end">
+              <BackToHome />
+            </div>
             <Suspense>
               <LoginForm />
             </Suspense>

@@ -19,6 +19,7 @@ export const BACKEND_ROUTES = {
     create: api.tasks.create,
     update: api.tasks.update,
     remove: api.tasks.remove,
+    removeMany: api.tasks.removeMany,
     reorder: api.tasks.reorder,
   },
   labels: {
@@ -88,7 +89,8 @@ export const BACKEND_ROUTES = {
 export const ROUTES = {
   backend: BACKEND_ROUTES,
   app: {
-    home: '/',
+    landing: '/',
+    home: '/app',
     login: '/login',
     register: '/register',
     registerClosed: '/register/closed',
@@ -102,6 +104,14 @@ export const ROUTES = {
       profile: '/settings/profile',
       workspace: '/settings/workspace',
       admin: '/settings/admin',
+    },
+    docs: {
+      index: '/docs',
+      gettingStarted: '/docs/getting-started',
+      configuration: '/docs/configuration',
+      usage: '/docs/usage',
+      mcp: '/docs/mcp',
+      deployment: '/docs/deployment',
     },
   },
 } as const;

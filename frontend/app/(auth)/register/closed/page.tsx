@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { ROUTES } from '@/lib/routes';
+import { BackToHome } from '@/components/back-to-home';
 import {
   Card,
   CardContent,
@@ -12,7 +13,10 @@ export default function RegisterClosedPage() {
   return (
     <main className="grid min-h-svh w-full place-items-center bg-background px-4 py-10">
       <div className="w-full max-w-md">
-    <Card>
+        <div className="mb-6 flex justify-end">
+          <BackToHome />
+        </div>
+        <Card>
       <CardHeader>
         <CardTitle>Registration is invite-only</CardTitle>
         <CardDescription>

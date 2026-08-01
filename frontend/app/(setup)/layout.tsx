@@ -1,5 +1,10 @@
+import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 import { CalendarDays, KanbanSquare, ListChecks } from 'lucide-react';
+
+export const metadata: Metadata = {
+  robots: { index: false, follow: false },
+};
 
 const FEATURES = [
   {

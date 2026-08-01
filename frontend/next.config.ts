@@ -1,7 +1,22 @@
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
 import type { NextConfig } from "next";
 
 const isProd = process.env.NODE_ENV === 'production';
-const turbopackRoot = process.env.NEXT_TURBOPACK_ROOT;
+
+function resolveTurbopackRoot(): string {
+  const env = process.env.NEXT_TURBOPACK_ROOT;
+  if (env && existsSync(env)) return env;
+  let dir = process.cwd();
+  for (;;) {
+    if (existsSync(join(dir, 'pnpm-workspace.yaml'))) return dir;
+    const parent = join(dir, '..');
+    if (parent === dir) return process.cwd();
+    dir = parent;
+  }
+}
+
+const turbopackRoot = resolveTurbopackRoot();
 
 function requiredOrigin(name: string) {
   const value = process.env[name];
@@ -54,7 +69,7 @@ const nextConfig: NextConfig = {
   output: 'standalone',
   reactStrictMode: true,
   poweredByHeader: false,
-  ...(turbopackRoot ? { turbopack: { root: turbopackRoot } } : {}),
+  ...{ turbopack: { root: turbopackRoot } },
   experimental: {
     serverActions: { bodySizeLimit: '2mb' },
   },
@@ -66,7 +81,6 @@ const nextConfig: NextConfig = {
       { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
       { key: 'Content-Security-Policy', value: csp },
       { key: 'Cross-Origin-Opener-Policy', value: 'same-origin' },
-      { key: 'X-Robots-Tag', value: 'noindex, nofollow, noarchive' },
     ];
     if (isProd) {
       headers.push({
