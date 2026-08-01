@@ -44,7 +44,7 @@ export function BrandMark({ className }: { className?: string }) {
   );
 }
 
-const GITHUB_URL = 'https://github.com/Matthew-kabiu/TaskLabs.git';
+const GITHUB_URL = 'https://github.com/Matthew-kabiu/TaskLabs';
 
 function GithubIcon({ className }: { className?: string }) {
   return (

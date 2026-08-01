@@ -8,6 +8,9 @@
 [![Convex](https://img.shields.io/badge/backend-Convex%20(self--hosted)-orange.svg)](https://convex.dev)
 [![MCP ready](https://img.shields.io/badge/MCP-ready-blueviolet.svg)](#automate-with-mcp-and-api-keys)
 [![Built by Spookie Labs](https://img.shields.io/badge/built%20by-Spookie%20Labs-1f6feb.svg)](https://www.spookielabsinc.site)
+[![Live instance](https://img.shields.io/badge/live-tasklabs.spookielabsinc.site-2ea043.svg)](https://tasklabs.spookielabsinc.site/)
+
+**[Live instance](https://tasklabs.spookielabsinc.site/)** · **[Source on GitHub](https://github.com/Matthew-kabiu/TaskLabs)** · **[Built by Spookie Labs](https://www.spookielabsinc.site)**
 
 > **Project status — read this first.** TaskLabs is production-ready for individuals and small teams today. The multi-tenant foundations are already in place (shared workspaces, `OWNER`/`ADMIN`/`MEMBER` roles, invite links, task assignment, per-workspace API keys). A larger **team collaboration release** is in progress — see [Roadmap](#roadmap) for what is landing next and what is deliberately not built yet.
 
@@ -129,12 +132,14 @@ Backend code follows a strict layering: thin public functions handle auth and va
 
 ## Quickstart (local development)
 
+> **Want to look before you install?** A live instance runs at **[tasklabs.spookielabsinc.site](https://tasklabs.spookielabsinc.site/)**. Self-hosting is the point of the project, so the steps below are the real setup — the live instance is there to show you what you're deploying.
+
 **Prerequisites:** Docker 24+ with Compose v2, **Node 22.13+**, and pnpm. (Node 22.13 is the floor required by current pnpm releases; older Node versions fail at install time.)
 
 ```bash
 # 1. Clone the repository.
-git clone https://github.com/Spooky-Organization/Tasklabs.git
-cd Tasklabs
+git clone https://github.com/Matthew-kabiu/TaskLabs.git
+cd TaskLabs
 
 # 2. Create your local config from the documented example, then fill in values.
 cp .env.example .env.dev
@@ -256,6 +261,9 @@ The bundled `db-backup` service runs a daily `pg_dump --format custom`, uploads 
 ## Created by
 
 TaskLabs is built and maintained by **[Spookie Labs](https://www.spookielabsinc.site)** — see [spookielabsinc.site](https://www.spookielabsinc.site) for our other work and to get in touch.
+
+- **Live instance:** [tasklabs.spookielabsinc.site](https://tasklabs.spookielabsinc.site/)
+- **Source:** [github.com/Matthew-kabiu/TaskLabs](https://github.com/Matthew-kabiu/TaskLabs)
 
 If TaskLabs is useful to you, starring the repository helps other self-hosters find it.
 
