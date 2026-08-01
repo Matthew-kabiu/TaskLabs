@@ -6,22 +6,27 @@ import { TaskList } from '@/components/tasks/task-list';
 import { KanbanBoard } from '@/components/tasks/kanban-board';
 import { TaskToolbar } from '@/components/tasks/task-toolbar';
 import { TaskSidePanel } from '@/components/tasks/task-side-panel';
+import { TaskDeleteDialog } from '@/components/tasks/task-delete-dialog';
 import { ViewToggle } from '@/components/tasks/view-toggle';
 import { useTasksView } from '@/lib/hooks/use-tasks-view';
 import { useTaskPanel } from '@/lib/stores/task-panel';
 import {
   useCreateTask,
   useDeleteTask,
+  useDeleteTasks,
   useTasks,
   useUpdateTask,
   type TaskDTO,
 } from '@/hooks/useTasks';
 import { useWorkspaceMembers, useWorkspaces } from '@/hooks/useWorkspaces';
 import type { ListTasksQuery } from '@/lib/validations/task.schema';
-import type { QuickAddResult } from '@/lib/tasks/quick-parse';
+import type { CreateTaskInput } from '@/lib/validations/task.schema';
 
 export default function TasksPage() {
   const [filters, setFilters] = useState<Partial<ListTasksQuery>>({ sort: 'manual' });
+  const [createOpen, setCreateOpen] = useState(false);
+  const [batchDeleteOpen, setBatchDeleteOpen] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const { activeWorkspaceId } = useWorkspaces();
   const { view, setView } = useTasksView();
   const openId = useTaskPanel((s) => s.taskId);
@@ -34,23 +39,24 @@ export default function TasksPage() {
   const createTask = useCreateTask(activeWorkspaceId);
   const updateTask = useUpdateTask(activeWorkspaceId);
   const deleteTask = useDeleteTask(activeWorkspaceId);
+  const deleteTasks = useDeleteTasks(activeWorkspaceId);
 
-  const handleQuickCreate = async (parsed: QuickAddResult) => {
+  const handleCreate = async (input: CreateTaskInput) => {
     try {
       await createTask.mutateAsync({
-        title: parsed.title,
-        status: 'TODO',
-        priority: parsed.priority ?? 'MEDIUM',
-        isPrivate: false,
-        dueDate: parsed.dueDate,
+        ...input,
       });
       toast.success('Task created');
     } catch (err) {
       toast.error((err as Error).message);
+      throw err;
     }
   };
 
-  const handleNewTask = () => handleQuickCreate({ title: 'Untitled task' });
+  const handleNewTask = () => {
+    closePanel();
+    setCreateOpen(true);
+  };
 
   const handleToggleComplete = async (id: string, status: 'TODO' | 'DONE') => {
     try {
@@ -73,13 +79,35 @@ export default function TasksPage() {
   const handleDelete = async (id: string) => {
     try {
       await deleteTask.mutateAsync(id);
+      setSelectedIds((current) => {
+        const next = new Set(current);
+        next.delete(id);
+        return next;
+      });
       toast.success('Task deleted');
+    } catch (err) {
+      toast.error((err as Error).message);
+      throw err;
+    }
+  };
+
+  const handleDeleteSelected = async () => {
+    // Single pass: filter + map collapsed into one traversal.
+    const ids = tasks.flatMap((task) =>
+      selectedIds.has(task.id) ? [task.id] : [],
+    );
+    if (ids.length === 0) return;
+    try {
+      const result = await deleteTasks.mutateAsync(ids);
+      setSelectedIds(new Set());
+      toast.success(`${result.deleted} task${result.deleted === 1 ? '' : 's'} deleted`);
     } catch (err) {
       toast.error((err as Error).message);
     }
   };
 
   const tasks: TaskDTO[] = tasksQuery.data ?? [];
+  const selectedCount = tasks.filter((task) => selectedIds.has(task.id)).length;
   const openTask = openId ? tasks.find((t) => t.id === openId) ?? null : null;
 
   return (
@@ -109,14 +137,19 @@ export default function TasksPage() {
       ) : (
         <TaskList
           tasks={tasks}
+          selectedIds={selectedIds}
           onOpen={openPanel}
+          onSelectionChange={setSelectedIds}
+          onDelete={handleDelete}
+          onDeleteSelected={async () => setBatchDeleteOpen(true)}
           onToggleComplete={handleToggleComplete}
+          isDeleting={deleteTasks.isPending}
         />
       )}
 
       <TaskSidePanel
-        key={openTask?.id ?? 'closed'}
-        open={Boolean(openTask)}
+        key={createOpen ? 'create' : openTask?.id ?? 'closed'}
+        open={createOpen || Boolean(openTask)}
         task={openTask}
         members={membersQuery.data.map((member) => ({
           id: member.id,
@@ -124,9 +157,19 @@ export default function TasksPage() {
           email: member.email ?? '',
         }))}
         labels={[]}
-        onClose={closePanel}
+        onClose={() => {
+          setCreateOpen(false);
+          closePanel();
+        }}
+        onCreate={handleCreate}
         onSave={handleSave}
         onDelete={handleDelete}
+      />
+      <TaskDeleteDialog
+        open={batchDeleteOpen}
+        onOpenChange={setBatchDeleteOpen}
+        count={selectedCount}
+        onConfirm={handleDeleteSelected}
       />
     </div>
   );

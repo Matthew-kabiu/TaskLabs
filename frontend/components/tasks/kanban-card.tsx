@@ -1,10 +1,13 @@
 'use client';
 
+import { useState } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { format, isPast, isToday } from 'date-fns';
 import { CalendarDays, Edit2, Trash2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { useDeleteTask } from '@/hooks/useTasks';
+import { TaskDeleteDialog } from '@/components/tasks/task-delete-dialog';
 import type { Priority, TaskStatus } from '@/lib/tasks/grouping';
 import { cn } from '@/lib/utils';
 import { useTaskPanel } from '@/lib/stores/task-panel';
@@ -62,6 +65,7 @@ interface KanbanCardProps {
 }
 
 export function KanbanCard({ task }: KanbanCardProps) {
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const {
     attributes,
     listeners,
@@ -104,43 +108,57 @@ export function KanbanCard({ task }: KanbanCardProps) {
         ? 'today'
         : 'normal';
 
-  async function handleDelete(e: React.MouseEvent) {
+  function handleDelete(e: React.MouseEvent) {
     e.stopPropagation();
-    if (!confirm(`Delete "${task.title}"?`)) return;
-    deleteTask.mutate(task.id);
+    setDeleteOpen(true);
   }
 
   return (
     <div
       ref={setNodeRef}
       style={style}
-      {...attributes}
-      {...listeners}
-      role="button"
-      tabIndex={0}
-      aria-label={`Task: ${task.title}`}
       data-testid={`kanban-card-${task.id}`}
-      onClick={(e) => {
-        if (isDragging) return;
-        e.stopPropagation();
-        open(task.id);
-      }}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          open(task.id);
-        }
-      }}
       className={cn(
         'group relative overflow-hidden rounded-md border bg-card p-3 shadow-sm',
-        'cursor-grab active:cursor-grabbing',
-        'hover:border-foreground/30 focus:outline-none focus:ring-2 focus:ring-ring',
+        'hover:border-foreground/30 focus-within:ring-2 focus-within:ring-ring',
       )}
     >
+      {/*
+        The drag handle and primary "open task" control. It covers the card but
+        is a *sibling* of the edit/delete buttons rather than their ancestor —
+        nesting real buttons inside another button is invalid ARIA and breaks
+        keyboard navigation. Card content below is purely presentational.
+
+        `role`/`tabIndex` are also supplied by dnd-kit's `attributes`, but they
+        are repeated explicitly after the spread so the interactive contract is
+        visible to readers and static analysis, and so a change to dnd-kit's
+        defaults cannot silently strip keyboard access. A real <button> is not
+        used here because Enter/Space would trigger both the native click and
+        dnd-kit's KeyboardSensor.
+      */}
+      <span
+        {...attributes}
+        {...listeners}
+        role="button"
+        tabIndex={0}
+        aria-label={`Task: ${task.title}`}
+        onClick={(e) => {
+          if (isDragging) return;
+          e.stopPropagation();
+          open(task.id);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            open(task.id);
+          }
+        }}
+        className="absolute inset-0 z-0 cursor-grab rounded-md focus:outline-none active:cursor-grabbing"
+      />
       {/* Priority side accent */}
       <span
         aria-hidden
-        className={cn('absolute inset-y-0 left-0 w-0.5', priority.dot)}
+        className={cn('absolute inset-y-0 left-0 z-10 w-0.5', priority.dot)}
       />
 
       {/* Title row */}
@@ -153,7 +171,7 @@ export function KanbanCard({ task }: KanbanCardProps) {
             {task.title}
           </p>
         </div>
-        <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+        <div className="relative z-10 flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100">
           <button
             type="button"
             aria-label="Edit task"
@@ -262,6 +280,20 @@ export function KanbanCard({ task }: KanbanCardProps) {
           )}
         </div>
       )}
+      <TaskDeleteDialog
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        taskTitle={task.title}
+        onConfirm={async () => {
+          try {
+            await deleteTask.mutateAsync(task.id);
+            toast.success('Task deleted');
+          } catch (error) {
+            toast.error((error as Error).message);
+            throw error;
+          }
+        }}
+      />
     </div>
   );
 }

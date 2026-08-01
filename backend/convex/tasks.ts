@@ -6,6 +6,7 @@ import {
   getTask,
   listTasks,
   removeTask,
+  removeTasks,
   reorderTasks,
   updateTask,
 } from "./tasks/service";
@@ -71,6 +72,15 @@ export const remove = mutation({
   args: { workspaceId: v.id("workspaces"), taskId: v.id("tasks") },
   handler: async (ctx, args) =>
     await removeTask(ctx, args.workspaceId, args.taskId),
+});
+
+export const removeMany = mutation({
+  args: {
+    workspaceId: v.id("workspaces"),
+    taskIds: v.array(v.id("tasks")),
+  },
+  handler: async (ctx, args) =>
+    await removeTasks(ctx, args.workspaceId, args.taskIds),
 });
 
 export const reorder = mutation({

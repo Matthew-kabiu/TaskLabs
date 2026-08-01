@@ -1,15 +1,20 @@
 'use client';
 
+import { useState } from 'react';
 import { format } from 'date-fns';
-import { Edit2 } from 'lucide-react';
+import { Edit2, Trash2 } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { PRIORITY_COLORS } from '@/lib/tasks/colors';
 import type { TaskDTO } from '@/hooks/useTasks';
+import { TaskDeleteDialog } from '@/components/tasks/task-delete-dialog';
 
 interface Props {
   task: TaskDTO;
+  selected: boolean;
   onOpen: (id: string) => void;
+  onSelect: (id: string, selected: boolean) => void;
+  onDelete: (id: string) => Promise<void>;
   onToggleComplete: (id: string, nextStatus: 'TODO' | 'DONE') => void;
 }
 
@@ -18,7 +23,15 @@ function initial(user: { name: string | null; email: string }) {
   return src.charAt(0).toUpperCase();
 }
 
-export function TaskRow({ task, onOpen, onToggleComplete }: Props) {
+export function TaskRow({
+  task,
+  selected,
+  onOpen,
+  onSelect,
+  onDelete,
+  onToggleComplete,
+}: Props) {
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const isDone = task.status === 'DONE';
   return (
     <div
@@ -26,6 +39,11 @@ export function TaskRow({ task, onOpen, onToggleComplete }: Props) {
       data-testid={`task-row-${task.id}`}
       onDoubleClick={() => onOpen(task.id)}
     >
+      <Checkbox
+        checked={selected}
+        onCheckedChange={(value) => onSelect(task.id, Boolean(value))}
+        aria-label={`Select ${task.title}`}
+      />
       <Checkbox
         checked={isDone}
         onCheckedChange={(v) => onToggleComplete(task.id, v ? 'DONE' : 'TODO')}
@@ -71,8 +89,22 @@ export function TaskRow({ task, onOpen, onToggleComplete }: Props) {
             </span>
           ))}
         </div>
+        <button
+          type="button"
+          aria-label={`Delete ${task.title}`}
+          className="rounded p-1 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+          onClick={() => setDeleteOpen(true)}
+        >
+          <Trash2 className="h-3.5 w-3.5" aria-hidden />
+        </button>
         <Edit2 className="h-3 w-3 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" aria-hidden />
       </div>
+      <TaskDeleteDialog
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        taskTitle={task.title}
+        onConfirm={() => onDelete(task.id)}
+      />
     </div>
   );
 }

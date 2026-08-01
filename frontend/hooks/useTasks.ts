@@ -94,6 +94,8 @@ function createArgs(workspaceId: string, input: CreateTaskVariables) {
     priority: input.priority,
     dueDate: optionalDateArg(input.dueDate),
     isPrivate: input.isPrivate,
+    assigneeIds: input.assigneeIds?.map((id) => id as Id<'users'>),
+    labelIds: input.labelIds?.map((id) => id as Id<'labels'>),
   };
 }
 
@@ -113,6 +115,8 @@ function updateArgs(
     completedAt: dateArg(input.completedAt),
     isPrivate: input.isPrivate,
     position: input.position,
+    assigneeIds: input.assigneeIds?.map((id) => id as Id<'users'>),
+    labelIds: input.labelIds?.map((id) => id as Id<'labels'>),
   };
 }
 
@@ -204,6 +208,24 @@ export function useDeleteTask(workspaceIdArg?: string | null) {
         });
       },
       [removeTask, workspaceId],
+    ),
+  );
+}
+
+export function useDeleteTasks(workspaceIdArg?: string | null) {
+  const { activeWorkspaceId } = useWorkspaces();
+  const workspaceId = workspaceIdArg ?? activeWorkspaceId;
+  const removeTasks = useConvexMutation(BACKEND_ROUTES.tasks.removeMany);
+  return usePendingMutation<{ deleted: number }, string[]>(
+    useCallback(
+      async (ids) => {
+        if (!workspaceId) throw new Error('Select a workspace before deleting tasks.');
+        return (await removeTasks({
+          workspaceId: workspaceId as Id<'workspaces'>,
+          taskIds: ids.map((id) => id as Id<'tasks'>),
+        })) as { deleted: number };
+      },
+      [removeTasks, workspaceId],
     ),
   );
 }

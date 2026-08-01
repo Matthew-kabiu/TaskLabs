@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { TaskRow } from '@/components/tasks/task-row';
 
@@ -26,7 +26,7 @@ const baseTask = {
 
 describe('TaskRow', () => {
   it('renders title, due-date chip, label pill, assignee initials', () => {
-    render(<TaskRow task={baseTask} onOpen={() => {}} onToggleComplete={() => {}} />);
+    render(<TaskRow task={baseTask} selected={false} onOpen={() => {}} onSelect={() => {}} onDelete={async () => {}} onToggleComplete={() => {}} />);
     expect(screen.getByText('Buy milk')).toBeInTheDocument();
     expect(screen.getByText('Bug')).toBeInTheDocument();
     expect(screen.getByText(/Apr 30/i)).toBeInTheDocument();
@@ -37,15 +37,36 @@ describe('TaskRow', () => {
 
   it('calls onToggleComplete with new status', () => {
     const fn = vi.fn();
-    render(<TaskRow task={baseTask} onOpen={() => {}} onToggleComplete={fn} />);
-    fireEvent.click(screen.getByRole('checkbox'));
+    render(<TaskRow task={baseTask} selected={false} onOpen={() => {}} onSelect={() => {}} onDelete={async () => {}} onToggleComplete={fn} />);
+    fireEvent.click(screen.getByRole('checkbox', { name: /toggle buy milk/i }));
     expect(fn).toHaveBeenCalledWith('t1', 'DONE');
   });
 
   it('calls onOpen when row body clicked', () => {
     const fn = vi.fn();
-    render(<TaskRow task={baseTask} onOpen={fn} onToggleComplete={() => {}} />);
+    render(<TaskRow task={baseTask} selected={false} onOpen={fn} onSelect={() => {}} onDelete={async () => {}} onToggleComplete={() => {}} />);
     fireEvent.click(screen.getByText('Buy milk'));
     expect(fn).toHaveBeenCalledWith('t1');
+  });
+
+  it('uses the custom confirmation dialog before deleting', async () => {
+    const onDelete = vi.fn().mockResolvedValue(undefined);
+    render(
+      <TaskRow
+        task={baseTask}
+        selected={false}
+        onOpen={() => {}}
+        onSelect={() => {}}
+        onDelete={onDelete}
+        onToggleComplete={() => {}}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /delete buy milk/i }));
+    expect(screen.getByRole('heading', { name: /delete task/i })).toBeInTheDocument();
+    expect(onDelete).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: /^delete task$/i }));
+    await waitFor(() => expect(onDelete).toHaveBeenCalledWith('t1'));
   });
 });

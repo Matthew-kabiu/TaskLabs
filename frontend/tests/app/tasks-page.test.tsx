@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import TasksPage from '@/app/(app)/tasks/page';
 
@@ -17,6 +17,7 @@ vi.mock('@/hooks/useTasks', () => ({
   useCreateTask: () => ({ mutateAsync: vi.fn() }),
   useUpdateTask: () => ({ mutateAsync: vi.fn() }),
   useDeleteTask: () => ({ mutateAsync: vi.fn() }),
+  useDeleteTasks: () => ({ mutateAsync: vi.fn(), isPending: false }),
 }));
 
 vi.mock('@/hooks/useLabels', () => ({
@@ -33,5 +34,12 @@ describe('TasksPage', () => {
     await waitFor(() =>
       expect(screen.getByText(/no tasks/i)).toBeInTheDocument(),
     );
+  });
+
+  it('opens the create task panel without creating an untitled task', async () => {
+    render(<TasksPage />);
+    fireEvent.click(await screen.findByRole('button', { name: /new task/i }));
+    expect(await screen.findByRole('heading', { name: /create task/i })).toBeInTheDocument();
+    expect(screen.getByLabelText(/title/i)).toHaveValue('');
   });
 });

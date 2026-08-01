@@ -27,7 +27,11 @@ describe('TaskList', () => {
       <TaskList
         tasks={[t('today', '2026-04-28T20:00:00Z'), t('none', null)]}
         now={new Date('2026-04-28T12:00:00Z')}
+        selectedIds={new Set()}
         onOpen={() => {}}
+        onSelectionChange={() => {}}
+        onDelete={async () => {}}
+        onDeleteSelected={async () => {}}
         onToggleComplete={() => {}}
       />,
     );
@@ -41,7 +45,11 @@ describe('TaskList', () => {
       <TaskList
         tasks={[]}
         now={new Date()}
+        selectedIds={new Set()}
         onOpen={() => {}}
+        onSelectionChange={() => {}}
+        onDelete={async () => {}}
+        onDeleteSelected={async () => {}}
         onToggleComplete={() => {}}
       />,
     );

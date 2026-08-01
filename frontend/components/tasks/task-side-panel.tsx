@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { format } from 'date-fns';
 import { Calendar as CalendarIcon, Check, Loader2, Tag, Trash2, Users, X } from 'lucide-react';
 import {
@@ -29,7 +29,8 @@ import {
 import { Calendar } from '@/components/ui/calendar';
 import type { TaskDTO } from '@/hooks/useTasks';
 import type { LabelDTO } from '@/hooks/useLabels';
-import type { UpdateTaskInput } from '@/lib/validations/task.schema';
+import type { CreateTaskInput, UpdateTaskInput } from '@/lib/validations/task.schema';
+import { TaskDeleteDialog } from '@/components/tasks/task-delete-dialog';
 
 const AVATAR_PALETTE = [
   { bg: 'bg-sky-500/20',    text: 'text-sky-500',     dot: 'bg-sky-500' },
@@ -95,6 +96,7 @@ interface Props {
   members: MemberDTO[];
   labels: LabelDTO[];
   onClose: () => void;
+  onCreate?: (input: CreateTaskInput) => Promise<void>;
   onSave: (id: string, input: UpdateTaskInput) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
 }
@@ -105,6 +107,7 @@ export function TaskSidePanel({
   members,
   labels,
   onClose,
+  onCreate,
   onSave,
   onDelete,
 }: Props) {
@@ -115,45 +118,78 @@ export function TaskSidePanel({
   const [dueDate, setDueDate] = useState<Date | undefined>();
   const [isPrivate, setIsPrivate] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
 
-  // Reset form fields whenever the parent swaps in a different task.
-  // The parent passes `key={task.id}` so this remounts on task change, but
-  // we still need this effect for in-place updates (e.g. SSE-driven refetch
-  // of the same task).
-  useEffect(() => {
-    if (!task) return;
-    /* eslint-disable react-hooks/set-state-in-effect */
-    setTitle(task.title);
-    setDescription(task.description ?? '');
-    setStatus(task.status);
-    setPriority(task.priority);
-    setDueDate(task.dueDate ? new Date(task.dueDate) : undefined);
-    setIsPrivate(task.isPrivate);
-    /* eslint-enable react-hooks/set-state-in-effect */
-  }, [task]);
+  // Reset the form when the panel switches to a *different* task (or to create
+  // mode), using React's documented "adjust state during render" pattern rather
+  // than an effect: no extra commit, no cascading render, and no eslint escape
+  // hatch.
+  //
+  // Keying off identity — not the whole task object — is deliberate. Convex
+  // pushes live updates, so re-syncing on every object change meant a
+  // concurrent edit by another workspace member overwrote whatever the current
+  // user had typed. Now a live update to the task you are editing leaves your
+  // in-progress text alone; the save button's `isDirty` comparison below still
+  // diffs against the freshest server values.
+  const identity = task?.id ?? (open ? '__create__' : null);
+  const [syncedIdentity, setSyncedIdentity] = useState<string | null>(null);
 
-  if (!task) return null;
+  if (identity !== null && identity !== syncedIdentity) {
+    setSyncedIdentity(identity);
+    if (task) {
+      setTitle(task.title);
+      setDescription(task.description ?? '');
+      setStatus(task.status);
+      setPriority(task.priority);
+      setDueDate(task.dueDate ? new Date(task.dueDate) : undefined);
+      setIsPrivate(task.isPrivate);
+    } else {
+      setTitle('');
+      setDescription('');
+      setStatus('TODO');
+      setPriority('MEDIUM');
+      setDueDate(undefined);
+      setIsPrivate(false);
+    }
+  }
+
+  if (!task && !onCreate) return null;
 
   // Detect unsaved changes for the save button.
-  const isDirty =
-    title !== task.title ||
-    (description || null) !== (task.description ?? null) ||
-    status !== task.status ||
-    priority !== task.priority ||
-    (dueDate?.getTime() ?? null) !== (task.dueDate ? new Date(task.dueDate).getTime() : null) ||
-    isPrivate !== task.isPrivate;
+  const isDirty = task
+    ? title !== task.title ||
+      (description || null) !== (task.description ?? null) ||
+      status !== task.status ||
+      priority !== task.priority ||
+      (dueDate?.getTime() ?? null) !==
+        (task.dueDate ? new Date(task.dueDate).getTime() : null) ||
+      isPrivate !== task.isPrivate
+    : title.trim().length > 0;
 
   const handleSave = async () => {
     setSaving(true);
     try {
-      await onSave(task.id, {
-        title,
-        description: description.length ? description : null,
-        status,
-        priority,
-        dueDate: dueDate ?? null,
-        isPrivate,
-      });
+      if (task) {
+        await onSave(task.id, {
+          title,
+          description: description.length ? description : null,
+          status,
+          priority,
+          dueDate: dueDate ?? null,
+          isPrivate,
+        });
+      } else if (onCreate) {
+        await onCreate({
+          title,
+          description: description.length ? description : undefined,
+          status,
+          priority,
+          dueDate,
+          isPrivate,
+          assigneeIds: [],
+          labelIds: [],
+        });
+      }
       onClose();
     } finally {
       setSaving(false);
@@ -173,13 +209,17 @@ export function TaskSidePanel({
         <SheetHeader>
           <SheetTitle className="flex items-center gap-2">
             <Dot className={STATUS_META[status].dot} />
-            Edit task
-            <span className="ml-1 rounded bg-muted px-1.5 py-0.5 font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
-              #{task.number}
-            </span>
+            {task ? 'Edit task' : 'Create task'}
+            {task ? (
+              <span className="ml-1 rounded bg-muted px-1.5 py-0.5 font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
+                #{task.number}
+              </span>
+            ) : null}
           </SheetTitle>
           <SheetDescription>
-            Created {format(new Date(task.createdAt), 'PPP')}
+            {task
+              ? `Created ${format(new Date(task.createdAt), 'PPP')}`
+              : 'Add the task details before creating it.'}
           </SheetDescription>
         </SheetHeader>
 
@@ -350,7 +390,7 @@ export function TaskSidePanel({
                   .map((l) => (
                     <span
                       key={l.id}
-                      className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium shadow-sm transition-all hover:opacity-90"
+                      className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium shadow-sm transition-opacity hover:opacity-90"
                       style={{
                         backgroundColor: l.color,
                         color: '#fff',
@@ -375,17 +415,18 @@ export function TaskSidePanel({
         </div>
 
         <div className="mt-auto flex items-center justify-between gap-2 pt-2">
-          <Button
-            type="button"
-            variant="ghost"
-            className="text-rose-500 hover:bg-rose-500/10 hover:text-rose-500"
-            onClick={async () => {
-              await onDelete(task.id);
-              onClose();
-            }}
-          >
-            <Trash2 className="mr-1 h-4 w-4" /> Delete
-          </Button>
+          {task ? (
+            <Button
+              type="button"
+              variant="ghost"
+              className="text-rose-500 hover:bg-rose-500/10 hover:text-rose-500"
+              onClick={() => setDeleteOpen(true)}
+            >
+              <Trash2 className="mr-1 h-4 w-4" /> Delete
+            </Button>
+          ) : (
+            <span />
+          )}
           <div className="flex gap-2">
             <Button type="button" variant="outline" onClick={onClose}>
               <X className="mr-1.5 h-4 w-4" /> Cancel
@@ -403,12 +444,23 @@ export function TaskSidePanel({
               ) : (
                 <>
                   <Check className="mr-1.5 h-4 w-4" />
-                  {isDirty ? 'Save changes' : 'Saved'}
+                  {task ? (isDirty ? 'Save changes' : 'Saved') : 'Create task'}
                 </>
               )}
             </Button>
           </div>
         </div>
+        {task ? (
+          <TaskDeleteDialog
+            open={deleteOpen}
+            onOpenChange={setDeleteOpen}
+            taskTitle={task.title}
+            onConfirm={async () => {
+              await onDelete(task.id);
+              onClose();
+            }}
+          />
+        ) : null}
       </SheetContent>
     </Sheet>
   );

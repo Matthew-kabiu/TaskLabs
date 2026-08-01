@@ -172,4 +172,48 @@ describe("workspaces and tasks MVP", () => {
       asOutsider.query(api.tasks.list, { workspaceId: workspace.id }),
     ).rejects.toThrow("Forbidden: not a member of this workspace");
   });
+
+  test("batch deletion is atomic and enforces private task ownership", async () => {
+    const t = convexTest(schema, modules);
+    const ownerId = await seedUser(t, {
+      email: "owner@example.com",
+      name: "Owner",
+    });
+    const memberId = await seedUser(t, {
+      email: "member@example.com",
+      name: "Member",
+    });
+    const asOwner = t.withIdentity({ subject: ownerId, email: "owner@example.com" });
+    const asMember = t.withIdentity({ subject: memberId, email: "member@example.com" });
+    const workspace = requireValue(
+      await asOwner.mutation(api.workspaces.ensurePersonal, { name: "Team" }),
+      "workspace",
+    );
+    await addWorkspaceMember(t, { workspaceId: workspace.id, userId: memberId });
+    const publicTask = await asOwner.mutation(api.tasks.create, {
+      workspaceId: workspace.id,
+      title: "Public",
+    });
+    const privateTask = await asOwner.mutation(api.tasks.create, {
+      workspaceId: workspace.id,
+      title: "Private",
+      isPrivate: true,
+    });
+
+    await expect(
+      asMember.mutation(api.tasks.removeMany, {
+        workspaceId: workspace.id,
+        taskIds: [publicTask.id, privateTask.id],
+      }),
+    ).rejects.toThrow("Forbidden: private task");
+    expect(await asOwner.query(api.tasks.list, { workspaceId: workspace.id })).toHaveLength(2);
+
+    await expect(
+      asOwner.mutation(api.tasks.removeMany, {
+        workspaceId: workspace.id,
+        taskIds: [publicTask.id, privateTask.id],
+      }),
+    ).resolves.toEqual({ deleted: 2 });
+    expect(await asOwner.query(api.tasks.list, { workspaceId: workspace.id })).toEqual([]);
+  });
 });

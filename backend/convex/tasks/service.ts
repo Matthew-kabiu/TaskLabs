@@ -430,6 +430,50 @@ export async function removeTaskForActor(
   return null;
 }
 
+export async function removeTasks(
+  ctx: MutationCtx,
+  workspaceId: Id<"workspaces">,
+  taskIds: Id<"tasks">[],
+) {
+  const { userId } = await requireMembership(ctx, workspaceId);
+  return await removeTasksForActor(ctx, workspaceId, userId, taskIds, true);
+}
+
+export async function removeTasksForActor(
+  ctx: MutationCtx,
+  workspaceId: Id<"workspaces">,
+  userId: Id<"users">,
+  taskIds: Id<"tasks">[],
+  membershipProven = false,
+) {
+  if (!membershipProven) {
+    await requireMembershipForUser(ctx, workspaceId, userId);
+  }
+  const uniqueTaskIds = [...new Set(taskIds)];
+  if (uniqueTaskIds.length < 1) {
+    throw new Error("taskIds must contain at least one task");
+  }
+  if (uniqueTaskIds.length > 100) {
+    throw new Error("Cannot delete more than 100 tasks at once");
+  }
+
+  // Validate the entire batch before deleting anything so authorization
+  // failures cannot leave the workspace with a partially deleted selection.
+  for (const taskId of uniqueTaskIds) {
+    const task = await getTaskInWorkspace(ctx, workspaceId, taskId);
+    if (task.isPrivate && task.creatorId !== userId) {
+      throw new TaskForbiddenError();
+    }
+  }
+
+  for (const taskId of uniqueTaskIds) {
+    await deleteTaskRelations(ctx, taskId);
+    await ctx.db.delete(taskId);
+  }
+
+  return { deleted: uniqueTaskIds.length };
+}
+
 export async function reorderTasks(
   ctx: MutationCtx,
   workspaceId: Id<"workspaces">,
