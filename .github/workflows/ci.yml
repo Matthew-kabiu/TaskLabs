@@ -1,49 +1,109 @@
 name: ci
+
 on:
   push:
     branches: [main]
   pull_request:
 
+# Superseded runs on the same ref are pointless; cancel them.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
 jobs:
-  test:
+  verify:
+    name: Typecheck, lint & test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      # pnpm must be installed before setup-node so `cache: pnpm` can resolve it.
+      # The version is pinned deliberately: this repo has no root package.json and
+      # therefore no `packageManager` field, so without a pin the runner and local
+      # machines drift onto different pnpm majors.
       - uses: pnpm/action-setup@v4
         with:
           version: 9
+
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm prisma generate
-      - run: pnpm test --run
-      - run: pnpm lint
-      - run: pnpm build
+
+      - name: Install workspace dependencies
+        run: pnpm install --frozen-lockfile
+
+      # This is a pnpm workspace: the packages are frontend/ and backend/, and
+      # there is no root manifest. Every script must therefore be run with
+      # `--dir <package>`; a bare `pnpm <script>` at the root fails with
+      # ERR_PNPM_NO_IMPORTER_MANIFEST_FOUND.
+      - name: Frontend — typecheck
+        run: pnpm --dir frontend run typecheck
+
+      - name: Frontend — lint
+        run: pnpm --dir frontend run lint
+
+      - name: Frontend — tests
+        run: pnpm --dir frontend run test
+
+      - name: Backend — typecheck
+        run: pnpm --dir backend run typecheck
+
+      - name: Backend — tests
+        run: pnpm --dir backend run test
 
   shellcheck:
+    name: Shell scripts
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: ludeeus/action-shellcheck@master
+
+      # `severity: warning` so that style-level notes (e.g. SC2009's "consider
+      # pgrep") report without failing the build. Genuine warnings and errors
+      # still fail. The previous config also passed `additional_files:
+      # docker/entrypoint.sh`, which has not existed since the Convex migration.
+      - uses: ludeeus/action-shellcheck@2.0.0
         with:
           scandir: '.'
-          additional_files: 'docker/entrypoint.sh'
+          severity: warning
 
-  docker-build:
+  compose-validate:
+    name: Docker Compose contract
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v3
-      - name: Build image (no push)
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: ./Dockerfile
-          push: false
-          tags: tasklabs:ci
-          build-args: |
-            APP_VERSION=ci-${{ github.sha }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+
+      # SOP requires every runtime value to be explicit, with no fallback
+      # defaults — Compose references keys as `${VAR:?}` so a missing one fails
+      # immediately instead of starting with an unsafe default. Validation
+      # therefore needs a fully-populated env file.
+      #
+      # The key list is derived from the committed templates rather than
+      # duplicated here, so a new variable is picked up automatically and this
+      # job fails if a template drifts out of sync with its Compose file —
+      # which is exactly the regression worth catching.
+      #
+      # No credentials are involved: `docker compose config` only interpolates
+      # and type-checks, so synthetic values are sufficient. Ports must still
+      # parse as integers.
+      - name: Generate synthetic env files from the committed templates
+        run: |
+          set -euo pipefail
+          synth() {
+            awk -F= '/^[A-Za-z_][A-Za-z0-9_]*=/ {
+              key = $1
+              print key "=" ((key ~ /PORT/) ? "3000" : "ci-placeholder")
+            }' "$1" > "$2"
+            echo "$2: $(wc -l < "$2") keys from $1"
+          }
+          synth .env.example      .env.ci.prod
+          synth .env.dev.example  .env.ci.dev
+
+      - name: Validate production stack
+        run: docker compose --env-file .env.ci.prod -f docker-compose.yml config --quiet
+
+      - name: Validate development stack
+        run: docker compose --env-file .env.ci.dev -f docker-compose.dev.yml config --quiet

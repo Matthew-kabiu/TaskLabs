@@ -142,7 +142,8 @@ git clone https://github.com/Matthew-kabiu/TaskLabs.git
 cd TaskLabs
 
 # 2. Create your local config from the documented example, then fill in values.
-cp .env.example .env.dev
+#    .env.dev.example is the development template; .env.example is for production.
+cp .env.dev.example .env.dev
 
 # 3. Start the database, backend, and admin dashboard.
 docker compose --env-file .env.dev -f docker-compose.dev.yml up -d postgres backend dashboard
@@ -162,7 +163,16 @@ Open the address you configured in `.env.dev` and complete the first-run setup w
 
 ## Configuration
 
-Every setting is an explicit environment variable — there are no fallback defaults, so a missing value fails loudly rather than starting in an unsafe state. [`.env.example`](.env.example) documents each key and what it is for.
+Every setting is an explicit environment variable — there are no fallback defaults, so a missing value fails loudly rather than starting in an unsafe state.
+
+Two committed templates document every key, both with blank values:
+
+| Template | Copy to | Used by |
+|---|---|---|
+| [`.env.example`](.env.example) | `.env` | `docker-compose.yml` (production) |
+| [`.env.dev.example`](.env.dev.example) | `.env.dev` | `docker-compose.dev.yml` (development) |
+
+The development template carries the same keys as production plus the dev-only hot-reload settings. CI verifies both templates stay in sync with their Compose files.
 
 The values you will always need to set:
 
