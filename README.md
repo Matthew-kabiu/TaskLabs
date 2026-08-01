@@ -209,7 +209,7 @@ A typical deployment:
 - Set `CORS_ALLOWED_ORIGINS` to your exact HTTPS origins.
 - Enable the bundled `db-backup` service for daily encrypted database backups to S3-compatible storage.
 
-Step-by-step instructions live on the **Deployment** page of the docs site and in [`docs/`](docs).
+Step-by-step instructions live on the **Deployment** page of the built-in docs site — see [`frontend/app/(docs)/docs/deployment/`](frontend/app/%28docs%29/docs/deployment) for the source, or read it rendered on any running instance at `/docs/deployment`. The REST/MCP surface is also published as an OpenAPI document at [`docs/openapi.yaml`](docs/openapi.yaml).
 
 ## Project layout
 
@@ -220,7 +220,7 @@ docs/       Specs, OpenAPI reference, deployment and ops templates
 ops/        Backup tooling and operational scripts
 ```
 
-Documentation source for the public docs site is in [`frontend/app/(docs)/`](frontend/app/(docs)).
+Documentation source for the public docs site is in [`frontend/app/(docs)/`](frontend/app/%28docs%29).
 
 ## Roadmap
 
@@ -241,9 +241,15 @@ TaskLabs is open source under the MIT license and contributions are welcome.
 
 - **Found a bug or have an idea?** Open an issue with reproduction steps or the problem you're trying to solve.
 - **Want to submit a change?** Branch off `main`, keep commits focused, and make sure typecheck, lint, and tests pass for every package you touched.
-- **Working on the codebase?** Read [`SOP.md`](SOP.md) first — it documents the architecture, layering rules, multi-tenancy requirements, environment discipline, and definition of done that the project holds itself to.
+**Working on the codebase?** These are the standards the project holds itself to:
 
-Two rules matter more than the rest: **every protected backend function must scope data to a workspace the caller belongs to**, and **no secrets, ports, or origins may be hardcoded or given fallback defaults**.
+- **Multi-tenancy is non-negotiable.** Every protected backend function must resolve the caller and scope data to a workspace they belong to. Cross-workspace access is a critical bug, not an edge case.
+- **No hardcoded configuration.** Ports, origins, credentials, and secrets come from explicit environment variables. Never add fallback defaults such as `${VAR:-value}` — required config must fail fast.
+- **Keep functions thin.** Public Convex functions handle authorization and argument validation, services hold business logic, and model helpers are the only code that touches the database.
+- **Validate every input** at the function boundary with Convex `v.*` validators.
+- **Definition of done:** typecheck, lint, and tests pass for every package you touched. CI runs all of them.
+
+Frontend work has two extra rules: app paths and Convex function references go through `frontend/lib/routes.ts` rather than being hardcoded, and generated Convex types are imported from the committed shims in `frontend/convex/_generated/`.
 
 ## FAQ
 
