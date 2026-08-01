@@ -93,9 +93,12 @@ export function AcceptForm(props: {
         }
       }
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Failed to accept invitation');
+      // Clear the in-flight markers first so no future branch here can return
+      // early and leave the button disabled with an accept still queued —
+      // matching register-form and setup-wizard.
       setPendingAccept(null);
       setBusy(false);
+      toast.error(e instanceof Error ? e.message : 'Failed to accept invitation');
     }
   }
 

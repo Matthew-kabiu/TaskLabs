@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import type { DragEndEvent } from '@dnd-kit/core';
-import { KanbanBoard, __test__ } from '@/components/tasks/kanban-board';
+import { KanbanBoard } from '@/components/tasks/kanban-board';
+import { handleDragEnd } from '@/lib/tasks/kanban-drag';
 import type { KanbanTask } from '@/components/tasks/kanban-card';
 
 const mkTask = (over: Partial<KanbanTask>): KanbanTask =>
@@ -78,7 +79,7 @@ describe('KanbanBoard', () => {
       activatorEvent: new MouseEvent('mousedown'),
     } as unknown as DragEndEvent;
 
-    __test__.handleDragEnd(ev);
+    handleDragEnd(ev);
 
     expect(updateMutate).toHaveBeenCalledTimes(1);
     const arg = updateMutate.mock.calls[0][0] as {
@@ -104,7 +105,7 @@ describe('KanbanBoard', () => {
       activatorEvent: new MouseEvent('mousedown'),
     } as unknown as DragEndEvent;
 
-    __test__.handleDragEnd(ev);
+    handleDragEnd(ev);
 
     expect(reorderMutate).toHaveBeenCalledTimes(1);
     const arg = reorderMutate.mock.calls[0][0] as {
