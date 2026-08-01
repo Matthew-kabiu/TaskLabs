@@ -40,17 +40,21 @@ export function DashboardClient() {
     const due = taskDate(task);
     return due !== null && !isBefore(due, todayStart) && !isAfter(due, todayEnd);
   });
-  const nextSeven = tasks
-    .filter((task) => {
-      const due = taskDate(task);
-      return due !== null && !isBefore(due, todayStart) && !isAfter(due, sevenDaysEnd);
-    })
-    .map((task) => ({
-      kind: 'task' as const,
-      id: task.id,
-      title: task.title,
-      at: task.dueDate!,
-    }));
+  // Single traversal: the filter predicate and projection are fused.
+  const nextSeven = tasks.flatMap((task) => {
+    const due = taskDate(task);
+    if (due === null || isBefore(due, todayStart) || isAfter(due, sevenDaysEnd)) {
+      return [];
+    }
+    return [
+      {
+        kind: 'task' as const,
+        id: task.id,
+        title: task.title,
+        at: task.dueDate!,
+      },
+    ];
+  });
   const stats = {
     total: tasks.length,
     dueToday: todayList.length,

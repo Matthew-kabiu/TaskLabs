@@ -8,7 +8,7 @@ import { AlertCircle, ArrowLeft, ArrowRight, CheckCircle2, UserPlus } from 'luci
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, m } from 'framer-motion';
 import { BACKEND_ROUTES, ROUTES } from '@/lib/routes';
 import { setupSchema, type SetupInput } from '@/lib/validations/auth';
 import { Button } from '@/components/ui/button';
@@ -124,6 +124,11 @@ export function SetupWizard() {
         if (!signUp.signingIn) throw new Error('Failed to create admin.');
       }
     } catch (err) {
+      // Clear the in-flight markers up front so no branch can leave the wizard
+      // stuck on "submitting" with a claim still queued for the effect.
+      setPendingClaim(null);
+      setSubmitting(false);
+
       const rawMessage = err instanceof Error ? err.message : '';
       if (rawMessage.toLowerCase().includes('setup already complete')) {
         toast.error('Setup already complete.');
@@ -136,9 +141,6 @@ export function SetupWizard() {
       );
       setSubmitError(message);
       toast.error(message);
-      setPendingClaim(null);
-      setSubmitting(false);
-      return;
     }
   }
 
@@ -148,7 +150,7 @@ export function SetupWizard() {
   }
 
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
@@ -251,7 +253,7 @@ export function SetupWizard() {
           )}
           <AnimatePresence mode="wait">
             {step === 'account' && (
-              <motion.div
+              <m.div
                 key="account"
                 initial={{ opacity: 0, x: 16 }}
                 animate={{ opacity: 1, x: 0 }}
@@ -324,11 +326,11 @@ export function SetupWizard() {
                     <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
                   </Button>
                 </div>
-              </motion.div>
+              </m.div>
             )}
 
             {step === 'workspace' && (
-              <motion.div
+              <m.div
                 key="workspace"
                 initial={{ opacity: 0, x: 16 }}
                 animate={{ opacity: 1, x: 0 }}
@@ -378,11 +380,11 @@ export function SetupWizard() {
                     <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
                   </Button>
                 </div>
-              </motion.div>
+              </m.div>
             )}
 
             {step === 'done' && (
-              <motion.div
+              <m.div
                 key="done"
                 initial={{ opacity: 0, scale: 0.97 }}
                 animate={{ opacity: 1, scale: 1 }}
@@ -409,11 +411,11 @@ export function SetupWizard() {
                   <span>Open TaskLabs</span>
                   <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
                 </Button>
-              </motion.div>
+              </m.div>
             )}
           </AnimatePresence>
         </form>
       </Form>
-    </motion.div>
+    </m.div>
   );
 }

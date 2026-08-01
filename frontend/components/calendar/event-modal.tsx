@@ -37,7 +37,12 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { DateTimePicker, useNow } from '@/components/ui/datetime-picker';
+import { DateTimePicker } from '@/components/ui/datetime-picker';
+import { useNow } from '@/hooks/useNow';
+import {
+  applyScheduleConstraints,
+  scheduleChanged,
+} from '@/lib/calendar/schedule-constraints';
 import { toast } from 'sonner';
 import { eventCreateSchema } from '@/lib/validations/event.schema';
 import { EVENT_HUES, hueToHex } from '@/lib/calendar/palette';
@@ -97,25 +102,19 @@ export function EventModal({
 
   // For NEW events we forbid past dates/times; for editing we let the user
   // keep the existing schedule (so historical events can be amended).
-  const startMin = isEdit ? undefined : now;
+  // `now` is null until hydration, which simply means no lower bound yet.
+  const startMin = isEdit ? undefined : now ?? undefined;
 
-  // Keep start ≥ now for new events as the wall-clock advances. This is a
-  // legitimate external-clock synchronization, not a derived-state pattern.
-  React.useEffect(() => {
-    if (isEdit) return;
-    if (startAt.getTime() < now.getTime()) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setStartAt(new Date(now));
-    }
-  }, [now, isEdit, startAt]);
-
-  // Keep end strictly after start (constraint enforcement, not derivation).
-  React.useEffect(() => {
-    if (endAt.getTime() <= startAt.getTime()) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setEndAt(new Date(startAt.getTime() + 60 * 60 * 1000));
-    }
-  }, [startAt, endAt]);
+  // Both scheduling constraints are enforced in a single pass, during render,
+  // instead of two chained effects that each triggered another commit (the
+  // first effect's `setStartAt` re-ran the second one). The corrected values
+  // are therefore used by the very first paint. State is only written when a
+  // bound actually moved, so the user's own edits win and there is no loop.
+  const corrected = applyScheduleConstraints({ startAt, endAt }, { now, isEdit });
+  if (scheduleChanged({ startAt, endAt }, corrected)) {
+    setStartAt(corrected.startAt);
+    setEndAt(corrected.endAt);
+  }
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),

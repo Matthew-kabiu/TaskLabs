@@ -12,15 +12,6 @@ import {
 } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 
-export function useNow(intervalMs = 30_000) {
-  const [now, setNow] = React.useState<Date>(() => new Date());
-  React.useEffect(() => {
-    const id = setInterval(() => setNow(new Date()), intervalMs);
-    return () => clearInterval(id);
-  }, [intervalMs]);
-  return now;
-}
-
 interface DateTimePickerProps {
   value: Date;
   onChange: (date: Date) => void;

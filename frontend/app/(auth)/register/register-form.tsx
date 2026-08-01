@@ -60,6 +60,8 @@ export function RegisterForm() {
       try {
         await completeRegistration({ name: pendingRegistration.name });
       } catch (err) {
+        // The `finally` below always clears the in-flight markers, so both
+        // branches here are safe to return from.
         const message = err instanceof Error ? err.message : 'Registration failed.';
         if (message.toLowerCase().includes('public registration is disabled')) {
           router.replace(ROUTES.app.registerClosed);
@@ -98,15 +100,19 @@ export function RegisterForm() {
         if (!signUp.signingIn) throw new Error('Registration failed.');
       }
     } catch (err) {
+      // Always clear the in-flight markers before branching. Previously the
+      // "registration disabled" path returned with `submitting` still true and
+      // a pending registration queued, which left the button permanently
+      // disabled and the effect armed if the redirect did not unmount us.
+      setPendingRegistration(null);
+      setSubmitting(false);
+
       const message = err instanceof Error ? err.message : 'Registration failed.';
       if (message.toLowerCase().includes('public registration is disabled')) {
         router.replace(ROUTES.app.registerClosed);
         return;
       }
       toast.error(message);
-      setPendingRegistration(null);
-      setSubmitting(false);
-      return;
     }
   }
 
