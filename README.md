@@ -9,7 +9,19 @@
 - **Work as a team** — invite members into shared workspaces; everyone sees changes the moment they happen, with no refresh.
 - **Never miss a deadline** — reminders and notifications delivered through Telegram.
 - **Stay organized** — labels, search, and a notifications center keep things findable.
-- **Automate it** — a secure API (with revocable keys) lets other tools and AI agents work with your tasks.
+- **Automate it** — a stateless MCP endpoint at `POST /api/mcp` (tools for tasks, events, labels, search, and more) protected by revocable, scope-limited API keys.
+
+## Documentation
+
+The public docs site ships with the app at the `/docs` path (served from `FRONTEND_ORIGIN`). It covers:
+
+- **Quickstart** — install, first-run setup, and daily use.
+- **Configuration** — environment variables, origins, and CORS requirements.
+- **Using TaskLabs** — tasks, calendar, workspaces, notifications, search, and Telegram.
+- **MCP & API keys** — creating keys, scopes, and the MCP endpoint.
+- **Production** — deploying behind a proxy with encrypted daily backups.
+
+Source for all doc pages is in [`frontend/app/(docs)/`](frontend/app/(docs)).
 
 ## Why self-hosted
 
@@ -42,15 +54,15 @@ The app will be available at the address you set in your `.env.dev`. The `.env.e
 ## Project layout
 
 ```
-frontend/   The web app users interact with
+frontend/   The web app users interact with (app UI, landing page, and the public docs site)
 backend/    The server, database schema, and business logic
-docs/        Specs, build templates, and operational notes
-ops/         Deployment and operations tooling
+docs/       Specs, API reference, and ops templates (docker, openapi.yaml)
+ops/        Deployment and operations tooling
 ```
 
 ## Going to production
 
-TaskLabs is designed to deploy behind **Dokploy + Cloudflare Tunnel** with automated **daily database backups** to S3-compatible storage. Production configuration (public URLs, backup storage, Telegram alerts) is documented in `.env.example` and the `docs/` folder.
+TaskLabs is designed to deploy behind **Dokploy + Cloudflare Tunnel** with automated **daily database backups** to S3-compatible storage. Production configuration (public URLs, backup storage, Telegram alerts) is documented in `.env.example`, the `/docs/deployment` page, and the `docs/` folder.
 
 ## License
 
