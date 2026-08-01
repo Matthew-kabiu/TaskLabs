@@ -17,6 +17,7 @@ import {
   getTaskForActor,
   listTasksForActor,
   removeTaskForActor,
+  removeTasksForActor,
   reorderTasksForActor,
   updateTaskForActor,
 } from "./tasks/service";
@@ -58,6 +59,7 @@ const MCP_TOOL_SCOPES: Record<string, ApiKeyScope[]> = {
   "tasks.create": ["tasks:write"],
   "tasks.update": ["tasks:write"],
   "tasks.delete": ["tasks:write"],
+  "tasks.deleteMany": ["tasks:write"],
   "tasks.reorder": ["tasks:write"],
   "events.list": ["events:read"],
   "events.get": ["events:read"],
@@ -302,6 +304,17 @@ export const mcpDispatchMutation = internalMutation({
           stringArg(input, "taskId") as Id<"tasks">,
           true,
         );
+      case "tasks.deleteMany": {
+        const taskIds = input.taskIds;
+        if (!Array.isArray(taskIds)) throw new Error("taskIds is required");
+        return await removeTasksForActor(
+          ctx,
+          actor.workspaceId,
+          actor.userId,
+          taskIds.filter((item): item is string => typeof item === "string") as Id<"tasks">[],
+          true,
+        );
+      }
       case "tasks.reorder": {
         const items = input.items;
         if (!Array.isArray(items)) throw new Error("items is required");

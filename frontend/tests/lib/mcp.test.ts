@@ -111,6 +111,7 @@ describe('MCP route helpers', () => {
       expect.arrayContaining([
         'tasks.list',
         'tasks.create',
+        'tasks.deleteMany',
         'events.list',
         'labels.list',
         'workspaces.members.list',

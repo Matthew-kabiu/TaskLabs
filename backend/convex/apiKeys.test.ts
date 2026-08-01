@@ -244,4 +244,52 @@ describe("api keys", () => {
       }),
     ).rejects.toThrow("Insufficient API key scope");
   });
+
+  test("mcpDispatch batch-deletes tasks atomically with tasks.deleteMany", async () => {
+    const t = testBackend();
+    const userId = await seedUser(t, {
+      email: "mcp-batch@example.com",
+      name: "MCP Batch",
+    });
+    const asUser = t.withIdentity({
+      subject: userId,
+      email: "mcp-batch@example.com",
+    });
+    const workspace = requireValue(
+      await asUser.mutation(apiAny.workspaces.ensurePersonal, {
+        name: "MCP Batch Workspace",
+      }),
+      "workspace",
+    );
+    const created = await asUser.mutation(apiAny.apiKeys.create, {
+      workspaceId: workspace.id,
+      name: "MCP Batch",
+      scopes: ["tasks:read", "tasks:write"],
+    });
+
+    const first = await t.action(apiAny.apiKeys.mcpDispatch, {
+      token: created.token,
+      toolName: "tasks.create",
+      input: { title: "First" },
+    });
+    const second = await t.action(apiAny.apiKeys.mcpDispatch, {
+      token: created.token,
+      toolName: "tasks.create",
+      input: { title: "Second" },
+    });
+
+    const result = await t.action(apiAny.apiKeys.mcpDispatch, {
+      token: created.token,
+      toolName: "tasks.deleteMany",
+      input: { taskIds: [first.id, second.id] },
+    });
+    expect(result).toEqual({ deleted: 2 });
+
+    const list = await t.action(apiAny.apiKeys.mcpDispatch, {
+      token: created.token,
+      toolName: "tasks.list",
+      input: {},
+    });
+    expect(list).toEqual([]);
+  });
 });

@@ -92,6 +92,22 @@ export const MCP_TOOLS = [
     inputSchema: objectSchema({ taskId: idSchema }, ['taskId']),
   },
   {
+    name: 'tasks.deleteMany',
+    description:
+      'Delete multiple tasks atomically. Validates the full batch before deleting any task and caps at 100 tasks.',
+    inputSchema: objectSchema(
+      {
+        taskIds: {
+          type: 'array',
+          items: idSchema,
+          minItems: 1,
+          maxItems: 100,
+        },
+      },
+      ['taskIds'],
+    ),
+  },
+  {
     name: 'tasks.reorder',
     description: 'Update task positions in the API key workspace.',
     inputSchema: objectSchema(
