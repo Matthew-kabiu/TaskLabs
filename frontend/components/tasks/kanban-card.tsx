@@ -27,8 +27,13 @@ export interface KanbanTask {
   position: number;
   createdAt?: string | Date;
   updatedAt?: string | Date;
-  assignees: { user: { id: string; name: string | null; email: string } }[];
-  labels: { label: { id: string; name: string; color: string } }[];
+  assignees: {
+    id: string;
+    userId: string;
+    name: string | null;
+    email: string | null;
+  }[];
+  labels: { id: string; name: string; color: string }[];
 }
 
 const PRIORITY_META: Record<
@@ -56,8 +61,8 @@ function avatarColor(seed: string): string {
   return AVATAR_PALETTE[Math.abs(h) % AVATAR_PALETTE.length];
 }
 
-function initials(name: string | null, email: string): string {
-  return (name ?? email).slice(0, 2).toUpperCase();
+function initials(name: string | null, email: string | null): string {
+  return (name ?? email ?? '?').slice(0, 2).toUpperCase();
 }
 
 interface KanbanCardProps {
@@ -216,7 +221,7 @@ export function KanbanCard({ task }: KanbanCardProps) {
           {priority.label}
         </span>
 
-        {task.labels.map(({ label }) => (
+        {task.labels.map((label) => (
           <span
             key={label.id}
             className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium"
@@ -255,10 +260,10 @@ export function KanbanCard({ task }: KanbanCardProps) {
       {task.assignees.length > 0 && (
         <div className="mt-2.5 flex items-center justify-between pl-1">
           <div className="flex -space-x-1.5">
-            {task.assignees.slice(0, 4).map(({ user }) => (
+            {task.assignees.slice(0, 4).map((user) => (
               <div
                 key={user.id}
-                title={user.name ?? user.email}
+                title={user.name ?? user.email ?? 'Unknown user'}
                 className={cn(
                   'flex h-6 w-6 items-center justify-center rounded-full border-2 border-card text-[10px] font-semibold',
                   avatarColor(user.id),
@@ -275,7 +280,7 @@ export function KanbanCard({ task }: KanbanCardProps) {
           </div>
           {task.assignees.length === 1 && (
             <span className="text-[11px] text-muted-foreground">
-              {task.assignees[0].user.name ?? task.assignees[0].user.email}
+              {task.assignees[0].name ?? task.assignees[0].email ?? 'Unknown user'}
             </span>
           )}
         </div>

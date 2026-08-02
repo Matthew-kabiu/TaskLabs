@@ -27,8 +27,10 @@ const task: KanbanTask = {
   completedAt: null,
   isPrivate: false,
   position: 1024,
-  assignees: [],
-  labels: [],
+  assignees: [
+    { id: 'u1', userId: 'u1', name: 'Alice', email: 'alice@example.com' },
+  ],
+  labels: [{ id: 'l1', name: 'Bug', color: '#ef4444' }],
 };
 
 function renderCard() {
@@ -74,5 +76,12 @@ describe('KanbanCard accessibility', () => {
     expect(surface.contains(edit)).toBe(false);
     expect(surface.contains(remove)).toBe(false);
     expect(within(surface).queryByRole('button')).toBeNull();
+  });
+
+  it('renders the flattened task relations returned by Convex', () => {
+    renderCard();
+
+    expect(screen.getByText('Bug')).toBeInTheDocument();
+    expect(screen.getByTitle('Alice')).toHaveTextContent('AL');
   });
 });

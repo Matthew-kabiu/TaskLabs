@@ -29,8 +29,13 @@ export interface TaskDTO {
   completedAt: string | null;
   isPrivate: boolean;
   position: number;
-  assignees: { user: { id: string; name: string | null; email: string } }[];
-  labels: { label: { id: string; name: string; color: string } }[];
+  assignees: {
+    id: string;
+    userId: string;
+    name: string | null;
+    email: string | null;
+  }[];
+  labels: { id: string; name: string; color: string }[];
   createdAt: string;
   updatedAt: string;
 }

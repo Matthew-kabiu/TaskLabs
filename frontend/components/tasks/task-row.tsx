@@ -18,8 +18,8 @@ interface Props {
   onToggleComplete: (id: string, nextStatus: 'TODO' | 'DONE') => void;
 }
 
-function initial(user: { name: string | null; email: string }) {
-  const src = user.name?.trim() || user.email;
+function initial(user: { name: string | null; email: string | null }) {
+  const src = user.name?.trim() || user.email || '?';
   return src.charAt(0).toUpperCase();
 }
 
@@ -64,7 +64,7 @@ export function TaskRow({
         </span>
       </button>
       <div className="flex shrink-0 items-center gap-2">
-        {task.labels.map(({ label }) => (
+        {task.labels.map((label) => (
           <Badge
             key={label.id}
             variant="outline"
@@ -79,10 +79,10 @@ export function TaskRow({
           </span>
         )}
         <div className="flex -space-x-1.5">
-          {task.assignees.map(({ user }) => (
+          {task.assignees.map((user) => (
             <span
               key={user.id}
-              title={user.name ?? user.email}
+              title={user.name ?? user.email ?? 'Unknown user'}
               className="grid h-6 w-6 place-items-center rounded-full border border-background bg-muted text-[10px] font-medium"
             >
               {initial(user)}

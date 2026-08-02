@@ -16,10 +16,10 @@ const baseTask = {
   isPrivate: false,
   position: 1,
   assignees: [
-    { user: { id: 'u1', name: 'Alice', email: 'a@a.com' } },
-    { user: { id: 'u2', name: 'Bob', email: 'b@b.com' } },
+    { id: 'u1', userId: 'u1', name: 'Alice', email: 'a@a.com' },
+    { id: 'u2', userId: 'u2', name: 'Bob', email: 'b@b.com' },
   ],
-  labels: [{ label: { id: 'l1', name: 'Bug', color: '#ef4444' } }],
+  labels: [{ id: 'l1', name: 'Bug', color: '#ef4444' }],
   createdAt: '2026-04-28T00:00:00Z',
   updatedAt: '2026-04-28T00:00:00Z',
 };
