@@ -1,3 +1,5 @@
+import packageMetadata from '@/package.json';
+
 export const SITE_NAME = 'TaskLabs';
 
 export const SITE_DESCRIPTION =
@@ -21,4 +23,27 @@ export function siteMetadataBase(): URL | null {
   } catch {
     return null;
   }
+}
+
+export function deploymentIdentity(
+  environment = process.env.NODE_ENV,
+  origin = siteOrigin(),
+): { version: string; environment: 'DEV' | 'PROD'; origin: string } {
+  const production = environment === 'production';
+  let originLabel = 'LOCALHOST:3000';
+
+  if (production) {
+    try {
+      const labels = new URL(origin).hostname.split('.').filter(Boolean);
+      originLabel = (labels.at(-2) ?? labels[0] ?? '').toUpperCase();
+    } catch {
+      originLabel = '';
+    }
+  }
+
+  return {
+    version: `V${packageMetadata.version}`,
+    environment: production ? 'PROD' : 'DEV',
+    origin: originLabel,
+  };
 }

@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import { getLoginRedirectForFirstRun } from '@/lib/first-run-routing';
 import { convexServerOptions } from '@/lib/convex-server';
 import { BACKEND_ROUTES } from '@/lib/routes';
+import { deploymentIdentity } from '@/lib/site';
 import { BackToHome } from '@/components/back-to-home';
 import LoginForm from './login-form';
 
@@ -29,6 +30,7 @@ const FEATURES = [
 export const dynamic = 'force-dynamic';
 
 export default async function LoginPage() {
+  const deployment = deploymentIdentity();
   const setupStatus = (await fetchQuery(
     BACKEND_ROUTES.setup.status,
     {},
@@ -51,8 +53,8 @@ export default async function LoginPage() {
             <span>Sign in</span>
           </div>
           <div className="flex items-center gap-6">
-            <span>v0.1.0 · dev</span>
-            <span className="hidden lg:inline">localhost:3000</span>
+            <span>{deployment.version} · {deployment.environment}</span>
+            <span className="hidden lg:inline">{deployment.origin}</span>
           </div>
         </div>
       </div>

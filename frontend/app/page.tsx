@@ -147,15 +147,15 @@ const WEBSITE_JSONLD = {
 
 export default function LandingPage() {
   return (
-    <div className="flex min-h-dvh flex-col bg-background">
+    <div className="flex min-h-dvh min-w-0 flex-col bg-background">
       <JsonLd data={SOFTWARE_JSONLD} />
       <JsonLd data={WEBSITE_JSONLD} />
       <SiteHeader variant="marketing" />
 
-      <main className="flex-1">
-        <section className="mx-auto max-w-7xl px-4 pb-20 pt-14 sm:px-6 lg:px-8 lg:pb-28 lg:pt-20">
-          <div className="grid items-center gap-12 lg:grid-cols-[1.05fr_0.95fr]">
-            <div>
+      <main className="min-w-0 flex-1">
+        <section className="mx-auto max-w-7xl overflow-x-clip px-4 pb-20 pt-14 sm:px-6 lg:px-8 lg:pb-28 lg:pt-20">
+          <div className="grid min-w-0 items-center gap-12 lg:grid-cols-[1.05fr_0.95fr]">
+            <div className="min-w-0">
               <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
                 Self-hosted task &amp; calendar management
               </p>
@@ -180,9 +180,9 @@ export default function LandingPage() {
               </div>
             </div>
 
-            <div className="relative">
+            <div className="relative min-w-0">
               <div className="pointer-events-none absolute -inset-8 rounded-2xl bg-muted/40" aria-hidden="true" />
-              <div className="relative overflow-hidden rounded-lg border border-border shadow-sm">
+              <div className="relative min-w-0 max-w-full overflow-hidden rounded-lg border border-border shadow-sm">
                 <ProductPreview />
               </div>
             </div>
@@ -196,11 +196,11 @@ export default function LandingPage() {
             </h2>
             <div className="mt-12 grid gap-x-12 gap-y-10 md:grid-cols-2">
               {FEATURES.map((feature) => (
-                <div key={feature.title} className="flex gap-4">
+                <div key={feature.title} className="flex min-w-0 gap-4">
                   <span className="grid size-9 shrink-0 place-items-center rounded-md border border-border bg-background text-foreground">
                     <feature.icon className="size-4" aria-hidden="true" />
                   </span>
-                  <div>
+                  <div className="min-w-0">
                     <h3 className="text-[15px] font-semibold text-foreground">
                       {feature.title}
                     </h3>
@@ -230,7 +230,7 @@ export default function LandingPage() {
               </p>
             </div>
 
-            <div className="mt-12 grid gap-10 lg:grid-cols-2 lg:items-start">
+            <div className="mt-12 grid min-w-0 gap-10 lg:grid-cols-2 lg:items-start">
               <CodeBlock
                 lang="bash"
                 code={[
@@ -249,7 +249,7 @@ export default function LandingPage() {
                 ].join('\n')}
               />
 
-              <div className="grid gap-6 sm:grid-cols-2">
+              <div className="grid min-w-0 gap-6 sm:grid-cols-2">
                 {SELF_HOSTED_POINTS.map((point) => (
                   <div key={point.title}>
                     <h3 className="flex items-center gap-2 text-[15px] font-semibold text-foreground">
@@ -294,8 +294,8 @@ export default function LandingPage() {
               </p>
             </div>
 
-            <div className="mt-12 grid gap-5 lg:grid-cols-2">
-              <div className="rounded-lg border border-border bg-card p-6">
+            <div className="mt-12 grid min-w-0 gap-5 lg:grid-cols-2">
+              <div className="min-w-0 rounded-lg border border-border bg-card p-4 sm:p-6">
                 <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
                   POST /api/mcp
                 </p>
@@ -314,8 +314,8 @@ export default function LandingPage() {
                 />
               </div>
 
-              <div className="grid gap-5">
-                <div className="rounded-lg border border-border bg-card p-6">
+              <div className="grid min-w-0 gap-5">
+                <div className="min-w-0 rounded-lg border border-border bg-card p-4 sm:p-6">
                   <h3 className="flex items-center gap-2 text-[15px] font-semibold text-foreground">
                     <Bot className="size-4" aria-hidden="true" />
                     Works with AI agents and scripts
@@ -326,7 +326,7 @@ export default function LandingPage() {
                     workspace.
                   </p>
                 </div>
-                <div className="rounded-lg border border-border bg-card p-6">
+                <div className="min-w-0 rounded-lg border border-border bg-card p-4 sm:p-6">
                   <h3 className="flex items-center gap-2 text-[15px] font-semibold text-foreground">
                     <Server className="size-4" aria-hidden="true" />
                     Safe by design

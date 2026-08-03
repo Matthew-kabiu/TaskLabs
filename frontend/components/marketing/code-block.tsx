@@ -28,7 +28,7 @@ export function CodeBlock({
   return (
     <div
       className={cn(
-        'group relative overflow-hidden rounded-md border border-border bg-muted/40',
+        'group relative min-w-0 max-w-full overflow-hidden rounded-md border border-border bg-muted/40',
         className,
       )}
     >
@@ -54,7 +54,7 @@ export function CodeBlock({
           )}
         </button>
       </div>
-      <pre className="overflow-x-auto px-4 py-3.5 font-mono text-[13px] leading-relaxed text-foreground">
+      <pre className="w-full max-w-full overflow-x-auto px-4 py-3.5 font-mono text-[13px] leading-relaxed text-foreground">
         <code>{code}</code>
       </pre>
     </div>

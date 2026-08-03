@@ -168,7 +168,7 @@ export function SiteHeader({ variant = 'marketing' }: { variant?: 'marketing' | 
                 {link.label}
               </Link>
             ))}
-            <div className="flex items-center gap-3 pt-3">
+            <div className="flex flex-wrap items-center gap-3 pt-3">
               <a
                 href={GITHUB_URL}
                 target="_blank"
@@ -182,14 +182,14 @@ export function SiteHeader({ variant = 'marketing' }: { variant?: 'marketing' | 
                 asChild
                 variant="outline"
                 size="sm"
-                className="flex-1"
+                className="min-w-24 flex-1"
               >
                 <Link href={ROUTES.app.login} onClick={() => setOpen(false)}>
                   Sign in
                 </Link>
               </Button>
               {!setupDone ? (
-                <Button asChild size="sm" className="flex-1">
+                <Button asChild size="sm" className="min-w-24 flex-1">
                   <Link href={ROUTES.app.setup} onClick={() => setOpen(false)}>
                     Get started
                   </Link>

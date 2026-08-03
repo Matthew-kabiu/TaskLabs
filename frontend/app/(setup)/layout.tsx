@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 import { CalendarDays, KanbanSquare, ListChecks } from 'lucide-react';
+import { deploymentIdentity } from '@/lib/site';
 
 export const metadata: Metadata = {
   robots: { index: false, follow: false },
@@ -25,6 +26,8 @@ const FEATURES = [
 ];
 
 export default function SetupLayout({ children }: { children: ReactNode }) {
+  const deployment = deploymentIdentity();
+
   return (
     <main className="relative min-h-svh bg-background text-foreground">
       {/* Top rail */}
@@ -37,8 +40,8 @@ export default function SetupLayout({ children }: { children: ReactNode }) {
             <span>Initial setup</span>
           </div>
           <div className="flex items-center gap-6">
-            <span>v0.1.0 · dev</span>
-            <span className="hidden lg:inline">localhost:3000</span>
+            <span>{deployment.version} · {deployment.environment}</span>
+            <span className="hidden lg:inline">{deployment.origin}</span>
           </div>
         </div>
       </div>
