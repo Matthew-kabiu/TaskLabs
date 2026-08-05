@@ -11,6 +11,7 @@ describe('CalendarHeader', () => {
         onViewChange={() => {}}
         onNavigate={() => {}}
         onToday={() => {}}
+        timeZone="Africa/Nairobi"
       />,
     );
     expect(screen.getByText(/May 2026/)).toBeInTheDocument();
@@ -25,6 +26,7 @@ describe('CalendarHeader', () => {
         onViewChange={() => {}}
         onNavigate={onNavigate}
         onToday={() => {}}
+        timeZone="Africa/Nairobi"
       />,
     );
     screen.getByLabelText('Previous').click();

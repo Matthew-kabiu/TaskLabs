@@ -53,7 +53,10 @@ export function EventChip({
         type="button"
         data-variant={variant}
         data-completed={isCompleted ? 'true' : undefined}
-        onClick={onClick}
+        onClick={(event) => {
+          event.stopPropagation();
+          onClick?.();
+        }}
         className={cn(
           'flex w-full items-center gap-1.5 truncate rounded-md px-2 py-1 text-left text-xs font-medium transition-[transform,box-shadow] hover:scale-[1.02] hover:shadow-sm',
           isSolid

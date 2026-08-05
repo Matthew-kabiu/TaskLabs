@@ -174,14 +174,16 @@ export function EventModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
-        <DialogHeader>
+      <DialogContent className="max-h-[88vh] max-w-2xl overflow-y-auto p-0">
+        <DialogHeader className="border-b border-border/60 px-6 py-5">
           <DialogTitle className="flex items-center gap-2">
-            <CalendarPlus className="h-5 w-5 text-muted-foreground" />
+            <span className="grid h-9 w-9 place-items-center rounded-lg bg-sky-500/10 text-sky-400 ring-1 ring-sky-500/20">
+              <CalendarPlus className="h-4 w-4" />
+            </span>
             {isEdit ? 'Edit event' : 'New event'}
           </DialogTitle>
         </DialogHeader>
-        <form onSubmit={onSubmit} className="space-y-4">
+        <form onSubmit={onSubmit} className="space-y-5 px-6 pb-5">
           <div className="space-y-1.5">
             <Label htmlFor="title" className="flex items-center gap-1.5 text-xs">
               <Type className="h-3.5 w-3.5 text-muted-foreground" />
@@ -201,7 +203,7 @@ export function EventModal({
               {...form.register('notes')}
             />
           </div>
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-3 rounded-xl border border-border/60 bg-muted/10 p-4 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label className="flex items-center gap-1.5 text-xs">
                 <PlayCircle className="h-3.5 w-3.5 text-muted-foreground" />
@@ -318,7 +320,7 @@ export function EventModal({
               </SelectContent>
             </Select>
           </div>
-          <DialogFooter className="flex justify-between">
+          <DialogFooter className="flex justify-between border-t border-border/60 pt-4">
             {isEdit && initial && (
               <Button
                 type="button"

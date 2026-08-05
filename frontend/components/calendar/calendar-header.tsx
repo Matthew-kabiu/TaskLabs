@@ -5,6 +5,7 @@ import { ChevronLeft, ChevronRight, CalendarCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import type { CalendarView } from '@/lib/calendar/grid';
+import { useNow } from '@/hooks/useNow';
 
 interface Props {
   view: CalendarView;
@@ -12,6 +13,7 @@ interface Props {
   onViewChange: (v: CalendarView) => void;
   onNavigate: (dir: 'prev' | 'next') => void;
   onToday: () => void;
+  timeZone: string;
 }
 
 function rangeLabel(view: CalendarView, cursor: Date): string {
@@ -26,7 +28,9 @@ export function CalendarHeader({
   onViewChange,
   onNavigate,
   onToday,
+  timeZone,
 }: Props) {
+  const now = useNow(1_000);
   return (
     <div className="flex w-full items-center justify-between gap-3">
       <div className="flex items-center gap-2">
@@ -62,6 +66,17 @@ export function CalendarHeader({
         <span className="ml-2 text-base font-semibold">
           {rangeLabel(view, cursor)}
         </span>
+        <time className="hidden border-l border-border/60 pl-3 font-mono text-xs tabular-nums text-muted-foreground lg:inline" suppressHydrationWarning>
+          {now
+            ? new Intl.DateTimeFormat('en-US', {
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: false,
+                timeZone,
+              }).format(now)
+            : '--:--:--'}
+        </time>
       </div>
       <Tabs
         value={view}

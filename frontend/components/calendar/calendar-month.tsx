@@ -74,18 +74,28 @@ export function CalendarMonth({
             return (
               <div
                 key={key}
+                data-day-cell="true"
+                data-past={isPast ? 'true' : undefined}
+                title={isPast ? 'Cannot create events on past dates' : `Create event on ${format(d, 'PPP')}`}
+                onClick={() => {
+                  if (!isPast) onSelectDate(d);
+                }}
                 className={cn(
-                  'group flex flex-col gap-0.5 bg-card p-1 text-left text-[10px] sm:gap-1.5 sm:p-2 sm:text-xs',
+                  'group flex flex-col gap-0.5 bg-card p-1 text-left text-[10px] transition-colors sm:gap-1.5 sm:p-2 sm:text-xs',
                   isOther && 'bg-muted/20 text-muted-foreground',
+                  isPast
+                    ? 'cursor-not-allowed bg-muted/35 text-muted-foreground/45 [background-image:repeating-linear-gradient(135deg,transparent,transparent_8px,hsl(var(--muted-foreground)/0.035)_8px,hsl(var(--muted-foreground)/0.035)_9px)]'
+                    : 'cursor-pointer hover:bg-muted/50 focus-within:bg-muted/50',
                 )}
               >
                 <button
                   type="button"
-                  data-day-cell="true"
-                  data-past={isPast ? 'true' : undefined}
                   aria-disabled={isPast || undefined}
                   title={isPast ? 'Cannot create events on past dates' : undefined}
-                  onClick={() => onSelectDate(d)}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    if (!isPast) onSelectDate(d);
+                  }}
                   className={cn(
                     'flex w-full items-center justify-between',
                     isPast ? 'cursor-default' : 'cursor-pointer',
@@ -96,7 +106,9 @@ export function CalendarMonth({
                       'flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-medium transition-colors sm:h-7 sm:w-7 sm:text-xs',
                       isToday
                         ? 'bg-primary text-primary-foreground'
-                        : 'group-hover:bg-muted',
+                        : isPast
+                          ? 'text-muted-foreground/50'
+                          : 'group-hover:bg-muted',
                     )}
                   >
                     {format(d, 'd')}

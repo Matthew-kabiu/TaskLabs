@@ -21,6 +21,7 @@ import { toast } from 'sonner';
 import { format, startOfDay, isBefore } from 'date-fns';
 import { CalendarNotesPanel } from '@/components/calendar/notes-panel';
 import { ROUTES } from '@/lib/routes';
+import { useAppTimeZone } from '@/components/app-time-zone';
 
 /**
  * Reads the `?event=ID` deep-link parameter.
@@ -53,6 +54,7 @@ function EventDeepLink({
 }
 
 export default function CalendarPage() {
+  const timeZone = useAppTimeZone();
   const router = useRouter();
   const [view, setView] = React.useState<CalendarView>('month');
   const [cursor, setCursor] = React.useState<Date>(new Date());
@@ -153,8 +155,9 @@ export default function CalendarPage() {
             cursor={cursor}
             onViewChange={setView}
             onNavigate={navigate}
-            onToday={() => setCursor(new Date())}
-          />
+             onToday={() => setCursor(new Date())}
+             timeZone={timeZone}
+           />
         </div>
         <div className="flex shrink-0 items-center gap-2">
           <CalendarNotesPanel

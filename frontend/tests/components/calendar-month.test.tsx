@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { CalendarMonth } from '@/components/calendar/calendar-month';
 
 describe('CalendarMonth', () => {
@@ -38,5 +38,40 @@ describe('CalendarMonth', () => {
       />,
     );
     expect(screen.getByText('Hi')).toBeInTheDocument();
+  });
+
+  it('opens event creation when a valid day box is clicked', () => {
+    const onSelectDate = vi.fn();
+    const { container } = render(
+      <CalendarMonth
+        cursor={new Date('2099-05-15T00:00:00.000Z')}
+        events={[]}
+        tasks={[]}
+        onSelectDate={onSelectDate}
+        onSelectEvent={() => {}}
+        onSelectTask={() => {}}
+      />,
+    );
+
+    const cell = container.querySelector('[data-day-cell="true"]');
+    expect(cell).toHaveClass('cursor-pointer');
+    fireEvent.click(cell!);
+    expect(onSelectDate).toHaveBeenCalledTimes(1);
+  });
+
+  it('visually distinguishes past day cells', () => {
+    const { container } = render(
+      <CalendarMonth
+        cursor={new Date('2000-05-15T00:00:00.000Z')}
+        events={[]}
+        tasks={[]}
+        onSelectDate={() => {}}
+        onSelectEvent={() => {}}
+        onSelectTask={() => {}}
+      />,
+    );
+
+    const pastCell = container.querySelector('[data-past="true"]');
+    expect(pastCell).toHaveClass('cursor-not-allowed', 'bg-muted/35');
   });
 });
