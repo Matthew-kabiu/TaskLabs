@@ -22,9 +22,10 @@ const COLUMN_LABEL: Record<TaskStatus, string> = {
 interface KanbanColumnProps {
   status: TaskStatus;
   tasks: KanbanTask[];
+  projects?: Record<string, string>;
 }
 
-export function KanbanColumn({ status, tasks }: KanbanColumnProps) {
+export function KanbanColumn({ status, tasks, projects }: KanbanColumnProps) {
   const { setNodeRef, isOver } = useDroppable({
     id: status,
     data: { type: 'column', status },
@@ -57,7 +58,7 @@ export function KanbanColumn({ status, tasks }: KanbanColumnProps) {
       >
         <SortableContext items={itemIds} strategy={verticalListSortingStrategy}>
           {tasks.map((t) => (
-            <KanbanCard key={t.id} task={t} />
+            <KanbanCard key={t.id} task={t} projects={projects} />
           ))}
         </SortableContext>
 

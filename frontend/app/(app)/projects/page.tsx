@@ -3,7 +3,7 @@
 import { Suspense, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
-import { FolderKanban, Plus } from 'lucide-react';
+import { FolderKanban, Plus, Search, SlidersHorizontal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -95,23 +95,40 @@ function ProjectsPageContent() {
   const deleteTargetProject = filtered.find((p) => p.id === deleteTarget) ?? null;
 
   return (
-    <div className="flex flex-col gap-4 p-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Projects</h1>
+    <div className="flex flex-col gap-6 p-6">
+      <header className="flex flex-col gap-4 border-b border-border/50 pb-5 sm:flex-row sm:items-end sm:justify-between">
+        <div className="flex items-start gap-3">
+          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-sky-500/10 text-sky-400 ring-1 ring-sky-500/20">
+            <FolderKanban className="h-5 w-5" />
+          </span>
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight">Projects</h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Plan initiatives, assign owners, and keep project work together.
+            </p>
+          </div>
+        </div>
         <Button onClick={() => setCreateOpen(true)}>
           <Plus className="mr-1.5 h-4 w-4" /> New project
         </Button>
-      </div>
+      </header>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <Input
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="Search projects…"
-          className="max-w-xs"
-        />
+      <div className="flex flex-col gap-3 rounded-xl border border-border/60 bg-card/30 p-3 md:flex-row md:items-center">
+        <div className="relative min-w-0 flex-1 md:max-w-md">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Search projects…"
+            className="pl-9"
+          />
+        </div>
+        <div className="hidden h-6 w-px bg-border md:block" />
+        <span className="hidden items-center gap-1.5 text-xs font-medium text-muted-foreground md:flex">
+          <SlidersHorizontal className="h-3.5 w-3.5" /> Filters
+        </span>
         <Select value={status} onValueChange={(v) => setStatus(v as ProjectStatus | 'ALL')}>
-          <SelectTrigger className="w-40">
+          <SelectTrigger className="w-full md:w-44">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -124,7 +141,7 @@ function ProjectsPageContent() {
           </SelectContent>
         </Select>
         <Select value={priority} onValueChange={(v) => setPriority(v as ProjectPriority | 'ALL')}>
-          <SelectTrigger className="w-40">
+          <SelectTrigger className="w-full md:w-44">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -150,16 +167,24 @@ function ProjectsPageContent() {
           action={{ label: 'Create your first project', onClick: () => setCreateOpen(true) }}
         />
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {filtered.map((project) => (
-            <ProjectCard
-              key={project.id}
-              project={project}
-              members={membersQuery.data}
-              onDelete={setDeleteTarget}
-              isDeleting={deleteProject.isPending}
-            />
-          ))}
+        <div className="overflow-hidden rounded-xl border border-border/60 bg-card/30">
+          <div className="flex items-center justify-between gap-3 border-b border-border/60 bg-muted/20 px-4 py-3">
+            <p className="text-sm font-medium">Project portfolio</p>
+            <span className="rounded-full border border-border/60 bg-background px-2.5 py-1 text-xs text-muted-foreground">
+              {filtered.length} project{filtered.length === 1 ? '' : 's'}
+            </span>
+          </div>
+          <ul className="divide-y divide-border/60">
+            {filtered.map((project) => (
+              <ProjectCard
+                key={project.id}
+                project={project}
+                members={membersQuery.data}
+                onDelete={setDeleteTarget}
+                isDeleting={deleteProject.isPending}
+              />
+            ))}
+          </ul>
         </div>
       )}
 

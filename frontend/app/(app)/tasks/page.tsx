@@ -197,7 +197,7 @@ function TasksPageContent() {
       ) : null}
 
       {view === 'kanban' ? (
-        <KanbanBoard />
+        <KanbanBoard filters={filters} projects={projectById} />
       ) : tasksQuery.isLoading ? (
         <div className="rounded-md border p-8 text-center text-sm text-muted-foreground">
           Loading tasks…

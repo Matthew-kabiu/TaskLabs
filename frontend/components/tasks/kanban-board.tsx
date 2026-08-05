@@ -20,14 +20,21 @@ import {
 } from '@/lib/tasks/kanban-drag';
 import { KanbanColumn } from './kanban-column';
 import type { KanbanTask } from './kanban-card';
+import type { TaskListFilters } from '@/hooks/useTasks';
 
 
 // Module-level constant so the default never produces a fresh array identity,
 // which would invalidate the useMemo below on every render.
 const NO_TASKS: never[] = [];
 
-export function KanbanBoard() {
-  const { data: tasks = NO_TASKS, isLoading } = useTasks();
+export function KanbanBoard({
+  filters = {},
+  projects,
+}: {
+  filters?: TaskListFilters;
+  projects?: Record<string, string>;
+}) {
+  const { data: tasks = NO_TASKS, isLoading } = useTasks(filters);
   const updateTask = useUpdateTask();
   const reorderTasks = useReorderTasks();
 
@@ -74,7 +81,7 @@ export function KanbanBoard() {
         className="flex h-full gap-4 overflow-x-auto p-4"
       >
         {COLUMN_ORDER.map((s) => (
-          <KanbanColumn key={s} status={s} tasks={groups[s]} />
+          <KanbanColumn key={s} status={s} tasks={groups[s]} projects={projects} />
         ))}
       </div>
     </DndContext>

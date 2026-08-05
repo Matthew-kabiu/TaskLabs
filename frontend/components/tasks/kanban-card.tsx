@@ -4,13 +4,15 @@ import { useState } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { format, isPast, isToday } from 'date-fns';
-import { CalendarDays, Edit2, Trash2 } from 'lucide-react';
+import { CalendarDays, Edit2, FolderKanban, Trash2 } from 'lucide-react';
+import Link from 'next/link';
 import { toast } from 'sonner';
 import { useDeleteTask } from '@/hooks/useTasks';
 import { TaskDeleteDialog } from '@/components/tasks/task-delete-dialog';
 import type { Priority, TaskStatus } from '@/lib/tasks/grouping';
 import { cn } from '@/lib/utils';
 import { useTaskPanel } from '@/lib/stores/task-panel';
+import { ROUTES } from '@/lib/routes';
 
 export interface KanbanTask {
   id: string;
@@ -24,6 +26,7 @@ export interface KanbanTask {
   dueDate: string | Date | null;
   completedAt?: string | Date | null;
   isPrivate: boolean;
+  projectId?: string | null;
   position: number;
   createdAt?: string | Date;
   updatedAt?: string | Date;
@@ -67,9 +70,10 @@ function initials(name: string | null, email: string | null): string {
 
 interface KanbanCardProps {
   task: KanbanTask;
+  projects?: Record<string, string>;
 }
 
-export function KanbanCard({ task }: KanbanCardProps) {
+export function KanbanCard({ task, projects }: KanbanCardProps) {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const {
     attributes,
@@ -104,6 +108,7 @@ export function KanbanCard({ task }: KanbanCardProps) {
   };
 
   const priority = PRIORITY_META[task.priority];
+  const projectTitle = task.projectId ? projects?.[task.projectId] : undefined;
 
   const due = task.dueDate ? new Date(task.dueDate) : null;
   const dueState =
@@ -238,6 +243,18 @@ export function KanbanCard({ task }: KanbanCardProps) {
             {label.name}
           </span>
         ))}
+
+        {projectTitle && task.projectId ? (
+          <Link
+            href={ROUTES.app.project(task.projectId)}
+            className="relative z-10 inline-flex items-center gap-1 rounded border border-sky-500/30 bg-sky-500/10 px-1.5 py-0.5 text-[10px] font-medium text-sky-400 hover:border-sky-500/50"
+            onClick={(event) => event.stopPropagation()}
+            onPointerDown={(event) => event.stopPropagation()}
+          >
+            <FolderKanban className="h-2.5 w-2.5" />
+            {projectTitle}
+          </Link>
+        ) : null}
 
         {due && (
           <span

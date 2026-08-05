@@ -1,3 +1,11 @@
+import {
+  Database,
+  FileInput,
+  Globe2,
+  Link2,
+  MessageCircle,
+  type LucideIcon,
+} from 'lucide-react';
 import type { ProjectPriority, ProjectResourceType, ProjectStatus } from '@/hooks/useProjects';
 
 export const PROJECT_STATUS_META: Record<
@@ -24,14 +32,14 @@ export const PROJECT_PRIORITY_META: Record<
 
 export const PROJECT_RESOURCE_TYPE_META: Record<
   ProjectResourceType,
-  { label: string }
+  { label: string; icon: LucideIcon }
 > = {
-  WEBSITE: { label: 'Website' },
-  FORM: { label: 'Form' },
-  DATABASE: { label: 'Database' },
-  GITHUB: { label: 'GitHub' },
-  COMMUNICATION: { label: 'Communication' },
-  CUSTOM: { label: 'Custom' },
+  WEBSITE: { label: 'Website', icon: Globe2 },
+  FORM: { label: 'Form', icon: FileInput },
+  DATABASE: { label: 'Database', icon: Database },
+  GITHUB: { label: 'GitHub', icon: Link2 },
+  COMMUNICATION: { label: 'Communication', icon: MessageCircle },
+  CUSTOM: { label: 'Custom', icon: Link2 },
 };
 
 export function Dot({ className }: { className: string }) {

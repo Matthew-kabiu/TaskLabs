@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { useQuery } from 'convex/react';
 import { toast } from 'sonner';
-import { Loader2, Trash2 } from 'lucide-react';
+import { Loader2, MessageSquarePlus, Send, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { BACKEND_ROUTES } from '@/lib/routes';
 import { formatDateTime } from '@/lib/datetime';
@@ -54,16 +54,21 @@ export function ProjectUpdates({ projectId, workspaceId, members }: Props) {
   };
 
   return (
-    <section className="flex flex-col gap-3">
-      <div className="flex flex-col gap-2">
+    <div className="grid gap-3 lg:grid-cols-[minmax(18rem,0.7fr)_minmax(0,1.3fr)]">
+      <div className="flex h-fit flex-col gap-3 rounded-xl border border-border/60 bg-card/30 p-4">
+        <div className="flex items-center gap-2 text-sm font-medium">
+          <MessageSquarePlus className="h-4 w-4 text-muted-foreground" /> New update
+        </div>
         <textarea
           aria-label="Post a project update"
-          className="min-h-[80px] rounded-md border bg-background px-3 py-2 text-sm"
+          className="min-h-28 resize-y rounded-lg border border-border/60 bg-background px-3 py-2 text-sm leading-5 outline-none transition-colors placeholder:text-muted-foreground focus:border-foreground/40 focus:ring-2 focus:ring-ring/30"
           placeholder="Post an update to the project board…"
           value={body}
           onChange={(e) => setBody(e.target.value)}
+          maxLength={2000}
         />
-        <div className="flex justify-end">
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-xs text-muted-foreground">{body.trim().length}/2000</span>
           <Button
             type="button"
             size="sm"
@@ -75,20 +80,22 @@ export function ProjectUpdates({ projectId, workspaceId, members }: Props) {
                 <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> Posting…
               </>
             ) : (
-              'Post update'
+              <><Send className="mr-1.5 h-4 w-4" /> Post update</>
             )}
           </Button>
         </div>
       </div>
 
-      <div className="flex flex-col divide-y rounded-lg border bg-card">
+      <div className="flex min-h-40 flex-col divide-y divide-border/60 overflow-hidden rounded-xl border border-border/60 bg-card/30">
         {isLoading ? (
           <div className="p-6 text-center text-sm text-muted-foreground">
             Loading updates…
           </div>
         ) : (updates ?? []).length === 0 ? (
-          <div className="p-6 text-center text-sm text-muted-foreground">
-            No updates yet. Post the first one above.
+          <div className="flex flex-1 flex-col items-center justify-center gap-2 p-8 text-center">
+            <span className="grid h-10 w-10 place-items-center rounded-full bg-muted text-muted-foreground"><MessageSquarePlus className="h-4 w-4" /></span>
+            <p className="text-sm font-medium">No updates yet</p>
+            <p className="text-xs text-muted-foreground">Post the first progress note for this project.</p>
           </div>
         ) : (
           (updates ?? []).map((update) => {
@@ -126,6 +133,6 @@ export function ProjectUpdates({ projectId, workspaceId, members }: Props) {
           })
         )}
       </div>
-    </section>
+    </div>
   );
 }
