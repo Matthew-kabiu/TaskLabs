@@ -94,7 +94,7 @@ describe("api keys", () => {
     ).rejects.toThrow("Insufficient API key scope");
   });
 
-  test("revokes and rotates keys without exposing old secrets", async () => {
+  test("rotates keys without exposing old secrets and deletes revoked keys", async () => {
     const t = testBackend();
     const userId = await seedUser(t, {
       email: "rotate@example.com",
@@ -130,6 +130,10 @@ describe("api keys", () => {
     ).rejects.toThrow("Invalid API key");
 
     await asUser.mutation(apiAny.apiKeys.revoke, { keyId: created.id });
+    expect(
+      await asUser.query(apiAny.apiKeys.list, { workspaceId: workspace.id }),
+    ).toEqual([]);
+    expect(await t.run(async (ctx) => await ctx.db.get(created.id))).toBeNull();
     await expect(
       t.mutation(apiAny.apiKeys.verifyBearer, {
         token: rotated.token,

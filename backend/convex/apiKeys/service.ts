@@ -131,18 +131,8 @@ export async function revokeApiKey(
   const row = await getApiKeyForOwner(ctx, { keyId, userId });
   await requireMembership(ctx, row.workspaceId);
   await managementLimit(ctx, userId, row.workspaceId);
-  if (row.revokedAt === undefined) {
-    const now = Date.now();
-    await ctx.db.patch(keyId, {
-      revokedAt: now,
-      updatedAt: now,
-    });
-  }
-  const updated = await ctx.db.get(keyId);
-  if (updated === null) {
-    throw new Error("API key not found after revoke");
-  }
-  return apiKeyMetadataDto(updated);
+  await ctx.db.delete(keyId);
+  return null;
 }
 
 export async function rotateApiKey(

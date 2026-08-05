@@ -6,9 +6,13 @@ import type { Id } from '@convex/_generated/dataModel';
 import { toast } from 'sonner';
 import { formatDateTime } from '@/lib/datetime';
 import {
+  Activity,
+  CalendarClock,
+  ChevronDown,
   Copy,
   KeyRound,
   Loader2,
+  Plus,
   RefreshCcw,
   ShieldCheck,
   Trash2,
@@ -138,6 +142,7 @@ export function ApiKeysSection() {
   );
   const [oneTimeToken, setOneTimeToken] = React.useState<string | null>(null);
   const [pendingId, setPendingId] = React.useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = React.useState<ApiKeyRow | null>(null);
 
   const keys = useQuery(
     BACKEND_ROUTES.apiKeys.list,
@@ -216,7 +221,8 @@ export function ApiKeysSection() {
     setPendingId(keyId);
     try {
       await revokeKey({ keyId });
-      toast.success('API key revoked.');
+      setDeleteTarget(null);
+      toast.success('API key revoked and deleted.');
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Could not revoke API key.');
     } finally {
@@ -226,20 +232,22 @@ export function ApiKeysSection() {
 
   return (
     <section className="space-y-4">
-      <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="space-y-1">
-          <h2 className="flex items-center gap-2 text-lg font-medium">
-            <KeyRound className="h-5 w-5 text-muted-foreground" />
-            API keys
-          </h2>
+      <header className="flex flex-col gap-4 border-b border-border/50 pb-5 sm:flex-row sm:items-end sm:justify-between">
+        <div className="flex items-start gap-3">
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-sky-500/10 text-sky-400 ring-1 ring-sky-500/20">
+            <KeyRound className="h-5 w-5" />
+          </span>
+          <div className="space-y-1">
+          <h2 className="text-lg font-semibold">API keys</h2>
           <p className="text-sm text-muted-foreground">
             Create workspace-scoped bearer keys for MCP clients and automation.
           </p>
+          </div>
         </div>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
             <Button size="sm" className="gap-2" disabled={!activeWorkspaceId}>
-              <KeyRound className="h-4 w-4" />
+              <Plus className="h-4 w-4" />
               New key
             </Button>
           </DialogTrigger>
@@ -402,54 +410,70 @@ export function ApiKeysSection() {
         </div>
       )}
 
-      <div className="rounded-lg border bg-card">
-        <div className="border-b px-4 py-3 text-sm text-muted-foreground">
-          {isLoading || keys === undefined
-            ? 'Loading keys...'
-            : `${keys.length} key${keys.length === 1 ? '' : 's'} for ${
-                activeWorkspace?.name ?? 'this workspace'
-              }`}
+      <div className="overflow-hidden rounded-xl border border-border/60 bg-card/30">
+        <div className="flex items-center justify-between gap-3 border-b border-border/60 bg-muted/20 px-4 py-3">
+          <p className="text-sm font-medium">Workspace keys</p>
+          <span className="rounded-full border border-border/60 bg-background px-2.5 py-1 text-xs text-muted-foreground">
+            {isLoading || keys === undefined
+              ? 'Loading keys...'
+              : `${keys.length} key${keys.length === 1 ? '' : 's'} for ${
+                  activeWorkspace?.name ?? 'this workspace'
+                }`}
+          </span>
         </div>
-        <div className="divide-y">
+        <ul className="divide-y divide-border/60">
           {(keys ?? []).map((key) => {
-            const disabled = pendingId === key.id || key.revokedAt !== null;
+            const pending = pendingId === key.id;
+            const revoked = key.revokedAt !== null;
             return (
-              <div
+              <li
                 key={key.id}
-                className="grid gap-4 p-4 lg:grid-cols-[minmax(0,1fr)_auto]"
+                className="grid gap-4 px-4 py-4 transition-colors hover:bg-muted/15 md:grid-cols-[auto_minmax(0,1fr)_auto] md:items-center"
               >
-                <div className="min-w-0 space-y-2">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <p className="font-medium">{key.name}</p>
-                    <Badge variant={key.revokedAt ? 'destructive' : 'secondary'}>
-                      {key.revokedAt ? 'revoked' : 'active'}
+                <span className="grid h-10 w-10 place-items-center rounded-lg border border-border/60 bg-background text-muted-foreground">
+                  <KeyRound className="h-4 w-4" />
+                </span>
+                <div className="min-w-0 space-y-2.5">
+                  <div className="flex min-w-0 flex-wrap items-center gap-2">
+                    <p className="truncate font-medium">{key.name}</p>
+                    <Badge variant={revoked ? 'destructive' : 'secondary'} className="text-[10px] uppercase tracking-[0.1em]">
+                      {revoked ? 'Revoked' : 'Active'}
                     </Badge>
-                    <span className="font-mono text-xs text-muted-foreground">
+                    <code className="truncate font-mono text-xs text-muted-foreground">
                       tlk_live_{key.prefix}_...
+                    </code>
+                  </div>
+                  <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-muted-foreground">
+                    <span className="inline-flex items-center gap-1.5">
+                      <CalendarClock className="h-3.5 w-3.5" /> Created {formatDate(key.createdAt)}
+                    </span>
+                    <span className="inline-flex items-center gap-1.5">
+                      <Activity className="h-3.5 w-3.5" /> Last used {formatDate(key.lastUsedAt)}
+                    </span>
+                    <span className="inline-flex items-center gap-1.5">
+                      <ShieldCheck className="h-3.5 w-3.5" /> Expires {formatDate(key.expiresAt)}
                     </span>
                   </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {key.scopes.map((scope) => (
-                      <Badge key={scope} variant="outline" className="font-mono">
-                        {scope}
-                      </Badge>
-                    ))}
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Created {formatDate(key.createdAt)} · Last used{' '}
-                    {formatDate(key.lastUsedAt)} · Expires{' '}
-                    {formatDate(key.expiresAt)}
-                  </p>
+                  <details className="group/scopes">
+                    <summary className="flex w-fit cursor-pointer list-none items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground">
+                      <ChevronDown className="h-3.5 w-3.5 transition-transform group-open/scopes:rotate-180" />
+                      {key.scopes.length} permission{key.scopes.length === 1 ? '' : 's'}
+                    </summary>
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {key.scopes.map((scope) => (
+                        <Badge key={scope} variant="outline" className="font-mono text-[10px] font-normal">
+                          {scope}
+                        </Badge>
+                      ))}
+                    </div>
+                  </details>
                 </div>
-                <div className="flex flex-wrap items-center gap-2 lg:justify-end">
-                  <span className="w-full text-xs uppercase tracking-[0.14em] text-muted-foreground lg:text-right">
-                    Actions
-                  </span>
+                <div className="flex items-center gap-2 md:justify-end">
                   <Button
                     type="button"
                     size="sm"
                     variant="outline"
-                    disabled={disabled}
+                    disabled={pending || revoked}
                     onClick={() => onRotate(key.id)}
                   >
                     {pendingId === key.id ? (
@@ -463,23 +487,49 @@ export function ApiKeysSection() {
                     type="button"
                     size="sm"
                     variant="destructive"
-                    disabled={disabled}
-                    onClick={() => onRevoke(key.id)}
+                    disabled={pending}
+                    onClick={() => setDeleteTarget(key)}
                   >
                     <Trash2 className="h-4 w-4" />
-                    Revoke
+                    {revoked ? 'Delete' : 'Revoke & delete'}
                   </Button>
                 </div>
-              </div>
+              </li>
             );
           })}
           {keys?.length === 0 && (
-            <div className="p-6 text-sm text-muted-foreground">
-              No API keys exist for this workspace.
-            </div>
+            <li className="flex flex-col items-center gap-2 px-6 py-10 text-center">
+              <span className="grid h-10 w-10 place-items-center rounded-full bg-muted text-muted-foreground">
+                <KeyRound className="h-4 w-4" />
+              </span>
+              <p className="text-sm font-medium">No API keys yet</p>
+              <p className="text-xs text-muted-foreground">Create a key to connect an MCP client or automation.</p>
+            </li>
           )}
-        </div>
+        </ul>
       </div>
+
+      <Dialog open={deleteTarget !== null} onOpenChange={(next) => !next && setDeleteTarget(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{deleteTarget?.revokedAt ? 'Delete API key?' : 'Revoke and delete API key?'}</DialogTitle>
+            <DialogDescription>
+              “{deleteTarget?.name ?? 'This key'}” {deleteTarget?.revokedAt ? 'is already inactive and will be' : 'will stop working immediately and be'} permanently removed from this list. This cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteTarget(null)}>Cancel</Button>
+            <Button
+              variant="destructive"
+              disabled={deleteTarget !== null && pendingId === deleteTarget.id}
+              onClick={() => deleteTarget && onRevoke(deleteTarget.id)}
+            >
+              {deleteTarget !== null && pendingId === deleteTarget.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+              {deleteTarget?.revokedAt ? 'Delete key' : 'Revoke & delete'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }
