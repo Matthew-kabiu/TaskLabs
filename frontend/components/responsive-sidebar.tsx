@@ -7,6 +7,7 @@ import {
   LayoutDashboard,
   CheckSquare,
   Calendar,
+  FolderKanban,
   LogOut,
   Menu,
   PanelLeftClose,
@@ -43,12 +44,14 @@ import { WorkspaceSwitcher } from '@/components/workspace/workspace-switcher';
 import { useNotifications } from '@/hooks/useNotifications';
 import { ROUTES } from '@/lib/routes';
 import { cn } from '@/lib/utils';
+import { TaskLabsLogo } from '@/components/tasklabs-logo';
 
 // Static across every render — hoisted so the array and its element objects
 // keep a stable identity.
 const NAV_ITEMS = [
   { href: ROUTES.app.home, icon: LayoutDashboard, label: 'Dashboard' },
   { href: ROUTES.app.tasks, icon: CheckSquare, label: 'Tasks' },
+  { href: ROUTES.app.projects, icon: FolderKanban, label: 'Projects' },
   { href: ROUTES.app.calendar, icon: Calendar, label: 'Calendar' },
 ] as const;
 
@@ -86,10 +89,10 @@ export function ResponsiveSidebar({
       {/* Header */}
       <div className="flex h-12 shrink-0 items-center justify-between border-b px-4">
         {!isCollapsed && !isMobile && (
-          <span className="text-sm font-medium">TaskLabs</span>
+          <TaskLabsLogo markClassName="size-7 rounded-md" />
         )}
         {isMobile && (
-          <span className="text-base font-semibold">TaskLabs</span>
+          <TaskLabsLogo />
         )}
         {isCollapsed && !isMobile && (
           <Button
@@ -98,7 +101,7 @@ export function ResponsiveSidebar({
             className="mx-auto h-8 w-8"
             onClick={() => setIsCollapsed(false)}
           >
-            <Menu className="h-4 w-4" />
+            <TaskLabsLogo compact markClassName="size-8" />
           </Button>
         )}
         {!isCollapsed && !isMobile && (
@@ -282,7 +285,7 @@ export function ResponsiveSidebar({
               {renderSidebarContent(true)}
             </SheetContent>
           </Sheet>
-          <span className="text-base font-semibold">TaskLabs</span>
+          <TaskLabsLogo markClassName="size-7 rounded-md" />
           <div className="w-10" />
         </div>
 

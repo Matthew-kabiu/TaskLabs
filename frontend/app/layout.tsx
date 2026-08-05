@@ -23,6 +23,7 @@ export const metadata: Metadata = {
   metadataBase: siteMetadataBase() ?? undefined,
   title: 'TaskLabs',
   description: 'Multi-tenant task and calendar manager.',
+  icons: { icon: '/icon.svg', shortcut: '/icon.svg', apple: '/icon.svg' },
 };
 
 export default function RootLayout({

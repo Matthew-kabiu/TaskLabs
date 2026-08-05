@@ -4,10 +4,11 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
 import { useQuery } from 'convex/react';
-import { ArrowRight, Kanban, Menu, X } from 'lucide-react';
+import { ArrowRight, Menu, X } from 'lucide-react';
 import { BACKEND_ROUTES, ROUTES } from '@/lib/routes';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { TaskLabsLogo } from '@/components/tasklabs-logo';
 
 export type SiteHeaderLink = { label: string; href: string };
 
@@ -29,19 +30,7 @@ const DOCS_LINKS: SiteHeaderLink[] = [
 ];
 
 export function BrandMark({ className }: { className?: string }) {
-  return (
-    <span
-      className={cn(
-        'inline-flex items-center gap-2 text-foreground',
-        className,
-      )}
-    >
-      <span className="grid size-7 place-items-center rounded-md border border-border bg-muted text-foreground">
-        <Kanban className="size-4" aria-hidden="true" />
-      </span>
-      <span className="text-[15px] font-semibold tracking-tight">TaskLabs</span>
-    </span>
-  );
+  return <TaskLabsLogo className={className} markClassName="size-7 rounded-md" />;
 }
 
 const GITHUB_URL = 'https://github.com/Matthew-kabiu/TaskLabs';
