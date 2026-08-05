@@ -26,7 +26,7 @@ export default function ProfileSettingsPage() {
   if (!user) return null;
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-10 p-6 md:p-8">
+    <div className="w-full space-y-8 p-6">
       <header>
         <h1 className="text-2xl font-semibold">Profile settings</h1>
         <p className="text-sm text-muted-foreground">

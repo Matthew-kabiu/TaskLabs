@@ -26,5 +26,8 @@ export default async function AppLayout({
   );
   if (target) redirect(target);
 
-  return <AppShell>{children}</AppShell>;
+  const timeZone = process.env.BACKUP_TIMEZONE;
+  if (!timeZone) throw new Error('Missing environment variable BACKUP_TIMEZONE');
+
+  return <AppShell timeZone={timeZone}>{children}</AppShell>;
 }

@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Bell, CheckCheck } from 'lucide-react';
+import { CheckCheck, CircleCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useNotifications } from '@/hooks/useNotifications';
 import { toast } from 'sonner';
@@ -39,8 +39,8 @@ export default function NotificationsPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-3xl p-6">
-      <div className="mb-6 flex items-center justify-between">
+    <div className="flex w-full flex-col gap-6 p-6">
+      <div className="flex items-center justify-between border-b border-border/50 pb-4">
         <div>
           <h1 className="text-2xl font-semibold">Notifications</h1>
           <p className="text-sm text-muted-foreground">
@@ -56,10 +56,13 @@ export default function NotificationsPage() {
       </div>
 
       {notifications.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-12">
-          <Bell className="mb-4 h-12 w-12 text-muted-foreground" />
-          <h3 className="text-lg font-medium">No notifications</h3>
-          <p className="text-sm text-muted-foreground">
+        <div className="flex min-h-72 flex-col items-center justify-center rounded-xl border border-dashed border-border/70 bg-card/30 p-12 text-center">
+          <span className="mb-5 grid h-14 w-14 place-items-center rounded-full bg-emerald-500/10 text-emerald-400 ring-1 ring-emerald-500/20">
+            <CircleCheck className="h-6 w-6" />
+          </span>
+          <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-400">Inbox zero</p>
+          <h3 className="text-lg font-medium">You are all caught up</h3>
+          <p className="mt-1 max-w-md text-sm text-muted-foreground">
             You&apos;re all caught up. New notifications will appear here.
           </p>
         </div>

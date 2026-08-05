@@ -7,13 +7,14 @@ import { PageTransition } from '@/components/page-transition';
 import { ResponsiveSidebar } from '@/components/responsive-sidebar';
 import { useWorkspaces } from '@/hooks/useWorkspaces';
 import { BACKEND_ROUTES, ROUTES } from '@/lib/routes';
+import { AppTimeZoneProvider } from '@/components/app-time-zone';
 
 type ProfileUser = {
   name: string | null;
   email: string | null;
 };
 
-export function AppShell({ children }: { children: React.ReactNode }) {
+export function AppShell({ children, timeZone }: { children: React.ReactNode; timeZone: string }) {
   const router = useRouter();
   const { workspaces, activeWorkspaceId, isLoading, isAuthenticated } = useWorkspaces();
   const setupStatus = useQuery(BACKEND_ROUTES.setup.status, {}) as
@@ -43,6 +44,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
+    <AppTimeZoneProvider timeZone={timeZone}>
     <div className="flex min-h-screen">
       <ResponsiveSidebar
         workspaces={workspaces.map((workspace) => ({
@@ -57,5 +59,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <PageTransition>{children}</PageTransition>
       </main>
     </div>
+    </AppTimeZoneProvider>
   );
 }
