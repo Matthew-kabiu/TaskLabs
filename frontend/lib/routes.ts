@@ -28,6 +28,16 @@ export const BACKEND_ROUTES = {
     update: api.labels.update,
     remove: api.labels.remove,
   },
+  projects: {
+    list: api.projects.list,
+    get: api.projects.get,
+    create: api.projects.create,
+    update: api.projects.update,
+    remove: api.projects.remove,
+    updatesList: api.projects.updatesList,
+    addUpdate: api.projects.addUpdate,
+    removeUpdate: api.projects.removeUpdate,
+  },
   notifications: {
     list: api.notifications.list,
     unread: api.notifications.unread,
@@ -53,6 +63,8 @@ export const BACKEND_ROUTES = {
   invitations: {
     pending: api.invitations.pending,
     create: api.invitations.create,
+    revoke: api.invitations.revoke,
+    resend: api.invitations.resend,
     validate: api.invitations.validate,
     accept: api.invitations.accept,
   },
@@ -62,6 +74,7 @@ export const BACKEND_ROUTES = {
   },
   profile: {
     get: api.profile.get,
+    adminContact: api.profile.adminContact,
     update: api.profile.update,
     changePassword: api.profile.changePassword,
   },
@@ -92,12 +105,20 @@ export const ROUTES = {
     landing: '/',
     home: '/app',
     login: '/login',
+    forgotPassword: '/forgot-password',
     register: '/register',
     registerClosed: '/register/closed',
     invite: (token: string) => `/invite/${token}`,
     setup: '/setup',
     tasks: '/tasks',
+    tasksView: (view: 'today' | 'overdue' | 'done-this-week') =>
+      `/tasks?view=${view}`,
     task: (id: string) => `/tasks/${id}`,
+    projects: '/projects',
+    projectsStatus: (
+      status: 'PLANNING' | 'IN_PROGRESS' | 'ON_HOLD' | 'COMPLETED' | 'CANCELLED' | 'ARCHIVED',
+    ) => `/projects?status=${status}`,
+    project: (id: string) => `/projects/${id}`,
     calendar: '/calendar',
     notifications: '/notifications',
     settings: {

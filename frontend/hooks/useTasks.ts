@@ -12,6 +12,9 @@ import type {
   ReorderTasksInput,
   UpdateTaskInput,
 } from '@/lib/validations/task.schema';
+export type TaskListFilters = Partial<ListTasksQuery> & {
+  projectId?: string | null;
+};
 import { useWorkspaces } from '@/hooks/useWorkspaces';
 import type { Priority, TaskStatus } from '@/lib/tasks/grouping';
 import { BACKEND_ROUTES } from '@/lib/routes';
@@ -29,6 +32,7 @@ export interface TaskDTO {
   completedAt: string | null;
   isPrivate: boolean;
   position: number;
+  projectId: string | null;
   assignees: {
     id: string;
     userId: string;
@@ -53,22 +57,24 @@ type TaskQueryResult = {
   error: Error | null;
 };
 
-type CreateTaskVariables = Omit<CreateTaskInput, 'assigneeIds' | 'labelIds'> & {
+type CreateTaskVariables = Omit<
+  CreateTaskInput,
+  'assigneeIds' | 'labelIds' | 'projectId'
+> & {
   assigneeIds?: string[];
   labelIds?: string[];
+  projectId?: string | null;
 };
 
 type TaskPatch = Partial<
   Omit<UpdateTaskInput, 'dueDate' | 'completedAt'> & {
     dueDate: Date | string | null;
     completedAt: Date | string | null;
+    projectId?: string | null;
   }
 >;
 
-function taskListArgs(
-  workspaceId: string,
-  filters: Partial<ListTasksQuery>,
-) {
+function taskListArgs(workspaceId: string, filters: TaskListFilters) {
   return {
     workspaceId: workspaceId as Id<'workspaces'>,
     status: filters.status,
@@ -77,6 +83,11 @@ function taskListArgs(
     sort: filters.sort && filters.sort !== 'manual' ? filters.sort : undefined,
     dueFrom: filters.dueFrom,
     dueTo: filters.dueTo,
+    projectId: filters.projectId
+      ? (filters.projectId as Id<'projects'>)
+      : filters.projectId === null
+        ? null
+        : undefined,
   };
 }
 
@@ -99,6 +110,7 @@ function createArgs(workspaceId: string, input: CreateTaskVariables) {
     priority: input.priority,
     dueDate: optionalDateArg(input.dueDate),
     isPrivate: input.isPrivate,
+    projectId: input.projectId ? (input.projectId as Id<'projects'>) : undefined,
     assigneeIds: input.assigneeIds?.map((id) => id as Id<'users'>),
     labelIds: input.labelIds?.map((id) => id as Id<'labels'>),
   };
@@ -120,13 +132,19 @@ function updateArgs(
     completedAt: dateArg(input.completedAt),
     isPrivate: input.isPrivate,
     position: input.position,
+    projectId:
+      input.projectId === undefined
+        ? undefined
+        : input.projectId === null
+          ? null
+          : (input.projectId as Id<'projects'>),
     assigneeIds: input.assigneeIds?.map((id) => id as Id<'users'>),
     labelIds: input.labelIds?.map((id) => id as Id<'labels'>),
   };
 }
 
 export function useTasks(
-  filters: Partial<ListTasksQuery> = {},
+  filters: TaskListFilters = {},
   workspaceIdArg?: string | null,
 ): TaskQueryResult {
   const { activeWorkspaceId } = useWorkspaces();

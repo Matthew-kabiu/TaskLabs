@@ -10,6 +10,7 @@ describe('TaskToolbar', () => {
         filters={{ sort: 'manual' }}
         onFiltersChange={onChange}
         onNewTask={() => {}}
+        projects={[]}
       />,
     );
     const input = screen.getByPlaceholderText(/search/i);
@@ -20,7 +21,12 @@ describe('TaskToolbar', () => {
   it('emits new task click', () => {
     const fn = vi.fn();
     render(
-      <TaskToolbar filters={{ sort: 'manual' }} onFiltersChange={() => {}} onNewTask={fn} />,
+      <TaskToolbar
+        filters={{ sort: 'manual' }}
+        onFiltersChange={() => {}}
+        onNewTask={fn}
+        projects={[]}
+      />,
     );
     fireEvent.click(screen.getByRole('button', { name: /new task/i }));
     expect(fn).toHaveBeenCalled();

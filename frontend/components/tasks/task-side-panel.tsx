@@ -2,14 +2,14 @@
 
 import { useState } from 'react';
 import { format } from 'date-fns';
-import { Calendar as CalendarIcon, Check, Loader2, Tag, Trash2, Users, X } from 'lucide-react';
+import { Calendar as CalendarIcon, Check, FolderKanban, Loader2, Tag, Trash2, Users, X } from 'lucide-react';
 import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from '@/components/ui/sheet';
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -95,9 +95,10 @@ interface Props {
   task: TaskDTO | null;
   members: MemberDTO[];
   labels: LabelDTO[];
+  projects: { id: string; title: string }[];
   onClose: () => void;
-  onCreate?: (input: CreateTaskInput) => Promise<void>;
-  onSave: (id: string, input: UpdateTaskInput) => Promise<void>;
+  onCreate?: (input: CreateTaskInput & { projectId?: string | null }) => Promise<void>;
+  onSave: (id: string, input: UpdateTaskInput & { projectId?: string | null }) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
 }
 
@@ -106,6 +107,7 @@ export function TaskSidePanel({
   task,
   members,
   labels,
+  projects,
   onClose,
   onCreate,
   onSave,
@@ -117,6 +119,7 @@ export function TaskSidePanel({
   const [priority, setPriority] = useState<TaskDTO['priority']>('MEDIUM');
   const [dueDate, setDueDate] = useState<Date | undefined>();
   const [isPrivate, setIsPrivate] = useState(false);
+  const [projectId, setProjectId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
 
@@ -143,6 +146,7 @@ export function TaskSidePanel({
       setPriority(task.priority);
       setDueDate(task.dueDate ? new Date(task.dueDate) : undefined);
       setIsPrivate(task.isPrivate);
+      setProjectId(task.projectId);
     } else {
       setTitle('');
       setDescription('');
@@ -150,6 +154,7 @@ export function TaskSidePanel({
       setPriority('MEDIUM');
       setDueDate(undefined);
       setIsPrivate(false);
+      setProjectId(null);
     }
   }
 
@@ -163,7 +168,8 @@ export function TaskSidePanel({
       priority !== task.priority ||
       (dueDate?.getTime() ?? null) !==
         (task.dueDate ? new Date(task.dueDate).getTime() : null) ||
-      isPrivate !== task.isPrivate
+      isPrivate !== task.isPrivate ||
+      projectId !== task.projectId
     : title.trim().length > 0;
 
   const handleSave = async () => {
@@ -177,6 +183,7 @@ export function TaskSidePanel({
           priority,
           dueDate: dueDate ?? null,
           isPrivate,
+          projectId,
         });
       } else if (onCreate) {
         await onCreate({
@@ -188,6 +195,7 @@ export function TaskSidePanel({
           isPrivate,
           assigneeIds: [],
           labelIds: [],
+          projectId: projectId ?? undefined,
         });
       }
       onClose();
@@ -197,8 +205,8 @@ export function TaskSidePanel({
   };
 
   return (
-    <Sheet open={open} onOpenChange={(v) => (!v ? onClose() : undefined)}>
-      <SheetContent className="w-full max-w-md sm:max-w-lg flex flex-col gap-4">
+    <Dialog open={open} onOpenChange={(v) => (!v ? onClose() : undefined)}>
+      <DialogContent className="flex max-h-[88vh] max-w-2xl flex-col gap-4 overflow-hidden">
         <span
           aria-hidden
           className={cn(
@@ -206,8 +214,8 @@ export function TaskSidePanel({
             STATUS_META[status].dot,
           )}
         />
-        <SheetHeader>
-          <SheetTitle className="flex items-center gap-2">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
             <Dot className={STATUS_META[status].dot} />
             {task ? 'Edit task' : 'Create task'}
             {task ? (
@@ -215,13 +223,13 @@ export function TaskSidePanel({
                 #{task.number}
               </span>
             ) : null}
-          </SheetTitle>
-          <SheetDescription>
+          </DialogTitle>
+          <DialogDescription>
             {task
               ? `Created ${format(new Date(task.createdAt), 'PPP')}`
               : 'Add the task details before creating it.'}
-          </SheetDescription>
-        </SheetHeader>
+          </DialogDescription>
+        </DialogHeader>
 
         <div className="flex flex-col gap-4 overflow-y-auto pr-1">
           <div className="flex flex-col gap-2">
@@ -325,6 +333,33 @@ export function TaskSidePanel({
                 </div>
               </PopoverContent>
             </Popover>
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <Label className="flex items-center gap-1.5">
+              <FolderKanban className="h-3.5 w-3.5 text-muted-foreground" />
+              Project
+            </Label>
+            <Select
+              value={projectId ?? '__none__'}
+              onValueChange={(v) => setProjectId(v === '__none__' ? null : v)}
+            >
+              <SelectTrigger>
+                <SelectValue aria-label={projectId ?? 'No project'}>
+                  {projectId
+                    ? (projects.find((p) => p.id === projectId)?.title ?? 'Project')
+                    : 'No project'}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none__">No project</SelectItem>
+                {projects.map((project) => (
+                  <SelectItem key={project.id} value={project.id}>
+                    {project.title}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="flex flex-col gap-2">
@@ -461,7 +496,7 @@ export function TaskSidePanel({
             }}
           />
         ) : null}
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   );
 }

@@ -124,6 +124,99 @@ export const MCP_TOOLS = [
     ),
   },
   {
+    name: 'projects.list',
+    description: 'List visible projects in the API key workspace.',
+    inputSchema: objectSchema({
+      ...optionalWorkspaceId,
+      status: textSchema,
+      priority: textSchema,
+      q: textSchema,
+    }),
+  },
+  {
+    name: 'projects.get',
+    description: 'Get one visible project by id.',
+    inputSchema: objectSchema({ ...optionalWorkspaceId, projectId: idSchema }, [
+      'projectId',
+    ]),
+  },
+  {
+    name: 'projects.create',
+    description: 'Create a project in the API key workspace.',
+    inputSchema: objectSchema(
+      {
+        title: textSchema,
+        description: textSchema,
+        status: textSchema,
+        priority: textSchema,
+        memberIds: { type: 'array', items: idSchema },
+        startDate: { oneOf: [textSchema, { type: 'number' }] },
+        endDate: { oneOf: [textSchema, { type: 'number' }] },
+        resources: {
+          type: 'array',
+          items: objectSchema(
+            { label: textSchema, type: textSchema, url: textSchema },
+            ['label', 'type', 'url'],
+          ),
+        },
+      },
+      ['title'],
+    ),
+  },
+  {
+    name: 'projects.update',
+    description: 'Update a project in the API key workspace.',
+    inputSchema: objectSchema(
+      {
+        projectId: idSchema,
+        title: textSchema,
+        description: { oneOf: [textSchema, { type: 'null' }] },
+        status: textSchema,
+        priority: textSchema,
+        memberIds: { type: 'array', items: idSchema },
+        startDate: {
+          oneOf: [textSchema, { type: 'number' }, { type: 'null' }],
+        },
+        endDate: { oneOf: [textSchema, { type: 'number' }, { type: 'null' }] },
+        resources: {
+          type: 'array',
+          items: objectSchema(
+            { label: textSchema, type: textSchema, url: textSchema },
+            ['label', 'type', 'url'],
+          ),
+        },
+      },
+      ['projectId'],
+    ),
+  },
+  {
+    name: 'projects.delete',
+    description:
+      'Delete a project and cascade-delete its tasks in the API key workspace.',
+    inputSchema: objectSchema({ projectId: idSchema }, ['projectId']),
+  },
+  {
+    name: 'projects.updates.list',
+    description: 'List project updates (notice board) newest first.',
+    inputSchema: objectSchema({ projectId: idSchema }, ['projectId']),
+  },
+  {
+    name: 'projects.updates.create',
+    description: 'Post a project update to the project notice board.',
+    inputSchema: objectSchema({ projectId: idSchema, body: textSchema }, [
+      'projectId',
+      'body',
+    ]),
+  },
+  {
+    name: 'projects.updates.delete',
+    description: 'Delete a project update you authored, from the notice board.',
+    inputSchema: objectSchema(
+      { projectId: idSchema, updateId: idSchema },
+      ['projectId', 'updateId'],
+    ),
+  },
+  {
     name: 'events.list',
     description: 'List visible calendar events in a date range.',
     inputSchema: objectSchema({ from: textSchema, to: textSchema }, [

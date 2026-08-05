@@ -21,6 +21,7 @@ export const metadata: Metadata = {
 
 const SCOPE_ROWS: [string, string][] = [
   ['tasks:read / tasks:write', 'Task list/get and mutation MCP tools'],
+  ['projects:read / projects:write', 'Project CRUD, task filtering, and project updates'],
   ['events:read / events:write', 'Calendar event list/get and mutation tools'],
   ['labels:read / labels:write', 'Workspace label MCP tools'],
   ['workspaces:read / workspaces:admin', 'Workspace metadata; admin scope reserved'],
@@ -120,6 +121,7 @@ export default function DocsMcpPage() {
       <DocsList
         items={[
           <><strong>tasks</strong> — list, get, create, update, delete, deleteMany, reorder</>,
+          <><strong>projects</strong> — list, get, create, update, delete, updates list/create/delete</>,
           <><strong>events</strong> — list, get, create, update, delete, complete</>,
           <><strong>labels</strong> — list, create, update, delete</>,
           <><strong>workspaces</strong> — list, get, members list/update/remove</>,
@@ -139,6 +141,11 @@ export default function DocsMcpPage() {
         for the full selection before deleting anything, deduplicates IDs, and
         rejects batches over 100 tasks.
       </DocsP>
+      <DocsP>
+        Task list/create/update tools accept <DocsInlineCode>projectId</DocsInlineCode>.
+        Deleting a project cascades to its linked tasks, task relations, and
+        project updates.
+      </DocsP>
 
       <DocsH2 id="clients">Configuring MCP clients</DocsH2>
       <DocsP>
@@ -153,7 +160,7 @@ export default function DocsMcpPage() {
       <DocsList
         items={[
           <>API keys never create browser sessions.</>,
-          <>Keys cannot call setup, registration, invitation acceptance, credential changes, or API-key management.</>,
+          <>Keys cannot call setup, registration, invitation management or acceptance, credential changes, or API-key management.</>,
           <><DocsInlineCode>CORS_ALLOWED_ORIGINS</DocsInlineCode> must list exact origins; wildcard CORS is not used.</>,
           <>Tokens are hashed at rest; rotate any key that may have leaked.</>,
         ]}

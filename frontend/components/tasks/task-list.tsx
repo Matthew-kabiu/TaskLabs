@@ -18,6 +18,7 @@ interface Props {
   onDeleteSelected: () => Promise<void>;
   onToggleComplete: (id: string, status: 'TODO' | 'DONE') => void;
   isDeleting?: boolean;
+  projects?: Record<string, string>;
 }
 
 const BUCKETS: { key: keyof ReturnType<typeof groupTasksByDueBucket>; label: string }[] = [
@@ -51,6 +52,7 @@ export function TaskList({
   onDeleteSelected,
   onToggleComplete,
   isDeleting = false,
+  projects,
 }: Props) {
   const taskMap = useMemo(
     () => new Map(tasks.map((t) => [t.id, t])),
@@ -143,6 +145,7 @@ export function TaskList({
                     }}
                     onDelete={onDelete}
                     onToggleComplete={onToggleComplete}
+                    projects={projects}
                   />
                 );
               })}

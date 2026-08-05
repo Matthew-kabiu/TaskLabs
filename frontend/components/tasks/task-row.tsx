@@ -2,10 +2,11 @@
 
 import { useState } from 'react';
 import { format } from 'date-fns';
-import { Edit2, Trash2 } from 'lucide-react';
+import { Edit2, FolderKanban, Trash2 } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { PRIORITY_COLORS } from '@/lib/tasks/colors';
+import { ROUTES } from '@/lib/routes';
 import type { TaskDTO } from '@/hooks/useTasks';
 import { TaskDeleteDialog } from '@/components/tasks/task-delete-dialog';
 
@@ -16,6 +17,7 @@ interface Props {
   onSelect: (id: string, selected: boolean) => void;
   onDelete: (id: string) => Promise<void>;
   onToggleComplete: (id: string, nextStatus: 'TODO' | 'DONE') => void;
+  projects?: Record<string, string>;
 }
 
 function initial(user: { name: string | null; email: string | null }) {
@@ -30,9 +32,11 @@ export function TaskRow({
   onSelect,
   onDelete,
   onToggleComplete,
+  projects,
 }: Props) {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const isDone = task.status === 'DONE';
+  const projectTitle = task.projectId ? projects?.[task.projectId] : undefined;
   return (
     <div
       className="group flex items-center gap-3 rounded-md border border-border/60 bg-background px-3 py-2 hover:bg-muted/40"
@@ -73,6 +77,16 @@ export function TaskRow({
             {label.name}
           </Badge>
         ))}
+        {projectTitle ? (
+          <a
+            href={ROUTES.app.project(task.projectId!)}
+            className="inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-xs text-muted-foreground hover:text-foreground"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <FolderKanban className="h-3 w-3" />
+            {projectTitle}
+          </a>
+        ) : null}
         {task.dueDate && (
           <span className="rounded border px-1.5 py-0.5 text-xs text-muted-foreground">
             {format(new Date(task.dueDate), 'MMM d')}

@@ -40,6 +40,8 @@ import { BACKEND_ROUTES } from '@/lib/routes';
 type ApiKeyScope =
   | 'tasks:read'
   | 'tasks:write'
+  | 'projects:read'
+  | 'projects:write'
   | 'events:read'
   | 'events:write'
   | 'labels:read'
@@ -62,6 +64,10 @@ const SCOPE_GROUPS = [
   {
     label: 'Tasks',
     scopes: ['tasks:read', 'tasks:write'],
+  },
+  {
+    label: 'Projects',
+    scopes: ['projects:read', 'projects:write'],
   },
   {
     label: 'Calendar',

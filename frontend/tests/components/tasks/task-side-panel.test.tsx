@@ -15,6 +15,7 @@ const task = {
   completedAt: null,
   isPrivate: false,
   position: 1,
+  projectId: null,
   assignees: [],
   labels: [],
   createdAt: '2026-04-28T00:00:00Z',
@@ -30,6 +31,7 @@ describe('TaskSidePanel', () => {
         task={task}
         members={[]}
         labels={[]}
+        projects={[]}
         onClose={() => {}}
         onSave={onSave}
         onDelete={async () => {}}
@@ -51,6 +53,7 @@ describe('TaskSidePanel', () => {
         task={null}
         members={[]}
         labels={[]}
+        projects={[]}
         onClose={() => {}}
         onCreate={onCreate}
         onSave={async () => {}}
@@ -73,6 +76,7 @@ describe('TaskSidePanel', () => {
       open: true as const,
       members: [],
       labels: [],
+      projects: [],
       onClose: () => {},
       onSave: async () => {},
       onDelete: async () => {},
@@ -100,6 +104,7 @@ describe('TaskSidePanel', () => {
       open: true as const,
       members: [],
       labels: [],
+      projects: [],
       onClose: () => {},
       onSave: async () => {},
       onDelete: async () => {},

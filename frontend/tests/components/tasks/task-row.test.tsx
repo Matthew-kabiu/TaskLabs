@@ -15,6 +15,7 @@ const baseTask = {
   completedAt: null,
   isPrivate: false,
   position: 1,
+  projectId: null,
   assignees: [
     { id: 'u1', userId: 'u1', name: 'Alice', email: 'a@a.com' },
     { id: 'u2', userId: 'u2', name: 'Bob', email: 'b@b.com' },

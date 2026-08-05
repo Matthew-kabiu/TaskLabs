@@ -15,6 +15,7 @@ const t = (id: string, due: string | null, status: 'TODO' | 'DONE' = 'TODO') => 
   completedAt: null,
   isPrivate: false,
   position: 0,
+  projectId: null,
   assignees: [],
   labels: [],
   createdAt: '2026-04-28T00:00:00Z',
