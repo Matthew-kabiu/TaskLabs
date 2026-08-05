@@ -29,7 +29,7 @@ const fieldClass =
 const labelClass =
   'font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground';
 
-export default function LoginForm() {
+export default function LoginForm({ allowRegistration }: { allowRegistration: boolean }) {
   const router = useRouter();
   const params = useSearchParams();
   const { signIn } = useAuthActions();
@@ -111,7 +111,15 @@ export default function LoginForm() {
             name="password"
             render={({ field }) => (
               <FormItem className="space-y-2">
-                <FormLabel className={labelClass}>Password</FormLabel>
+                <div className="flex items-center justify-between">
+                  <FormLabel className={labelClass}>Password</FormLabel>
+                  <Link
+                    href={ROUTES.app.forgotPassword}
+                    className="font-mono text-[9px] uppercase tracking-[0.16em] text-muted-foreground transition-colors hover:text-foreground"
+                  >
+                    Forgot password?
+                  </Link>
+                </div>
                 <FormControl>
                   <PasswordInput
                     autoComplete="current-password"
@@ -140,16 +148,18 @@ export default function LoginForm() {
         </form>
       </Form>
 
-      <div className="mt-10 flex items-center justify-between border-t border-border/60 pt-5 font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
-        <span>No account?</span>
-        <Link
-          className="group inline-flex items-center gap-1.5 text-foreground transition-colors hover:text-foreground"
-          href={ROUTES.app.register}
-        >
-          <span>Register</span>
-          <ArrowRight className="h-3 w-3 transition-transform group-hover:translate-x-0.5" />
-        </Link>
-      </div>
+      {allowRegistration ? (
+        <div className="mt-10 flex items-center justify-between border-t border-border/60 pt-5 font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
+          <span>No account?</span>
+          <Link
+            className="group inline-flex items-center gap-1.5 text-foreground transition-colors hover:text-foreground"
+            href={ROUTES.app.register}
+          >
+            <span>Register</span>
+            <ArrowRight className="h-3 w-3 transition-transform group-hover:translate-x-0.5" />
+          </Link>
+        </div>
+      ) : null}
     </m.div>
   );
 }

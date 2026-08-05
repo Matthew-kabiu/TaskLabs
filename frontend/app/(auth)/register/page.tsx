@@ -4,6 +4,7 @@ import { BACKEND_ROUTES, ROUTES } from '@/lib/routes';
 import { convexServerOptions } from '@/lib/convex-server';
 import { BackToHome } from '@/components/back-to-home';
 import { RegisterForm } from './register-form';
+import { TaskLabsLogo } from '@/components/tasklabs-logo';
 
 export default async function RegisterPage() {
   const setting = (await fetchQuery(
@@ -18,7 +19,8 @@ export default async function RegisterPage() {
   return (
     <main className="grid min-h-svh w-full place-items-center bg-background px-4 py-10">
       <div className="w-full max-w-md">
-        <div className="mb-6 flex justify-end">
+        <div className="mb-6 flex items-center justify-between">
+          <TaskLabsLogo />
           <BackToHome />
         </div>
         <RegisterForm />

@@ -47,3 +47,10 @@ export function deploymentIdentity(
     origin: originLabel,
   };
 }
+
+export function maskEmail(email: string): string {
+  const [local, domain] = email.trim().split('@');
+  if (!local || !domain) throw new Error('ADMIN_SUPPORT_EMAIL must be a valid email address');
+  const visible = local.slice(0, Math.min(3, local.length));
+  return `${visible}${'•'.repeat(Math.max(4, local.length - visible.length))}@${domain}`;
+}

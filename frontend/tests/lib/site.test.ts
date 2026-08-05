@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { deploymentIdentity } from '@/lib/site';
+import { deploymentIdentity, maskEmail } from '@/lib/site';
 
 describe('deploymentIdentity', () => {
   it('keeps the development identity unchanged', () => {
@@ -18,5 +18,11 @@ describe('deploymentIdentity', () => {
       environment: 'PROD',
       origin: 'SPOOKIELABSINC',
     });
+  });
+});
+
+describe('maskEmail', () => {
+  it('masks the local part while preserving a recognizable prefix and domain', () => {
+    expect(maskEmail('saoperson@mail.com')).toBe('sao••••••@mail.com');
   });
 });

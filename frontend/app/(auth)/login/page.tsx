@@ -8,6 +8,7 @@ import { BACKEND_ROUTES } from '@/lib/routes';
 import { deploymentIdentity } from '@/lib/site';
 import { BackToHome } from '@/components/back-to-home';
 import LoginForm from './login-form';
+import { TaskLabsLogo } from '@/components/tasklabs-logo';
 
 const FEATURES = [
   {
@@ -40,6 +41,11 @@ export default async function LoginPage() {
   };
   const target = getLoginRedirectForFirstRun(setupStatus);
   if (target) redirect(target);
+  const registrationStatus = await fetchQuery(
+    BACKEND_ROUTES.registration.status,
+    {},
+    convexServerOptions(),
+  ).catch(() => ({ allowPublicRegistration: false }));
 
   return (
     <main className="relative min-h-svh bg-background text-foreground">
@@ -47,8 +53,7 @@ export default async function LoginPage() {
       <div className="pointer-events-none fixed inset-x-0 top-0 z-20 hidden border-b border-border/60 bg-background/80 px-8 py-3 backdrop-blur md:block">
         <div className="flex items-center justify-between font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
           <div className="flex items-center gap-3">
-            <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500/90 shadow-[0_0_10px_rgba(16,185,129,0.6)]" />
-            <span className="text-foreground/80">Tasklabs</span>
+            <TaskLabsLogo className="font-sans normal-case tracking-normal" markClassName="size-6 rounded-md" />
             <span className="text-border">/</span>
             <span>Sign in</span>
           </div>
@@ -147,16 +152,14 @@ export default async function LoginPage() {
 
         {/* ── RIGHT — form column ───────────────────────────────────── */}
         <section className="relative flex items-start justify-center px-6 pb-16 pt-10 md:items-center md:px-14 md:py-0">
+          <BackToHome className="absolute right-6 top-5 inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:border-foreground/40 hover:text-foreground md:right-8 md:top-6" />
           <div
             aria-hidden
             className="pointer-events-none absolute inset-y-0 left-14 hidden w-px bg-gradient-to-b from-transparent via-border to-transparent md:block"
           />
           <div className="relative w-full max-w-[440px]">
-            <div className="mb-6 flex justify-end">
-              <BackToHome />
-            </div>
             <Suspense>
-              <LoginForm />
+              <LoginForm allowRegistration={registrationStatus.allowPublicRegistration} />
             </Suspense>
           </div>
         </section>
