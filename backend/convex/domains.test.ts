@@ -206,6 +206,9 @@ describe("Convex backend domain ports", () => {
       name: "Admin",
       workspaceName: "Admin Workspace",
     });
+    expect(await asMember.query(apiAny.profile.adminContact, {})).toEqual({
+      email: "admin@example.com",
+    });
     await asAdmin.mutation(apiAny.settings.updateSystem, {
       allowPublicRegistration: true,
     });
@@ -213,19 +216,31 @@ describe("Convex backend domain ports", () => {
       name: "Member",
       workspaceName: "Member Workspace",
     });
-    const adminWorkspace = requireValue(
+    const personalWorkspace = requireValue(
       await asAdmin.query(apiAny.workspaces.defaultWorkspace, {}),
+      "personal workspace",
+    );
+    await expect(
+      asAdmin.mutation(apiAny.invitations.create, {
+        workspaceId: personalWorkspace.id,
+        email: "invitee@example.com",
+      }),
+    ).rejects.toThrow("Personal workspaces cannot invite members");
+    const adminWorkspace = requireValue(
+      await asAdmin.mutation(apiAny.workspaces.create, { name: "Admin Team" }),
       "admin workspace",
     );
     const invitation = await asAdmin.mutation(apiAny.invitations.create, {
       workspaceId: adminWorkspace.id,
       email: "invitee@example.com",
+      role: "ADMIN",
     });
     expect(invitation.invitePath).toContain(invitation.token);
     const valid = await asInvitee.query(apiAny.invitations.validate, {
       token: invitation.token,
     });
     expect(valid.email).toBe("invitee@example.com");
+    expect(valid.role).toBe("ADMIN");
     await asInvitee.mutation(apiAny.invitations.accept, {
       token: invitation.token,
     });
@@ -235,6 +250,39 @@ describe("Convex backend domain ports", () => {
     expect(members.map((member: { userId: string }) => member.userId)).toContain(
       inviteeId,
     );
+    expect(
+      members.find((member: { userId: string }) => member.userId === inviteeId)?.role,
+    ).toBe("ADMIN");
+    await expect(
+      asInvitee.mutation(apiAny.invitations.create, {
+        workspaceId: adminWorkspace.id,
+        email: "member@example.com",
+        role: "ADMIN",
+      }),
+    ).rejects.toThrow("Only workspace owners can invite admins");
+
+    const replaceable = await asAdmin.mutation(apiAny.invitations.create, {
+      workspaceId: adminWorkspace.id,
+      email: "member@example.com",
+      role: "MEMBER",
+    });
+    const resent = await asAdmin.mutation(apiAny.invitations.resend, {
+      workspaceId: adminWorkspace.id,
+      invitationId: replaceable.id,
+    });
+    await expect(
+      asMember.query(apiAny.invitations.validate, { token: replaceable.token }),
+    ).rejects.toThrow("Invalid invitation token");
+    expect(
+      await asMember.query(apiAny.invitations.validate, { token: resent.token }),
+    ).toMatchObject({ email: "member@example.com", role: "MEMBER" });
+    await asAdmin.mutation(apiAny.invitations.revoke, {
+      workspaceId: adminWorkspace.id,
+      invitationId: replaceable.id,
+    });
+    await expect(
+      asMember.query(apiAny.invitations.validate, { token: resent.token }),
+    ).rejects.toThrow("Invitation has been revoked");
 
     await asInvitee.mutation(apiAny.profile.update, {
       themePreference: "DARK",

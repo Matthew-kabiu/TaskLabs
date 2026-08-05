@@ -4,6 +4,7 @@ import { requireUserId, requireWorkspaceRole } from "../lib/auth";
 import { createNotificationRecord } from "../notifications/model";
 import {
   getInvitationByToken,
+  getInvitationInWorkspace,
   hashInvitationToken,
   invitationDto,
   listPendingInvitationsForWorkspace,
@@ -11,6 +12,23 @@ import {
   newInvitationExpiry,
   normalizeInvitationEmail,
 } from "./model";
+
+type InvitationRole = "MEMBER" | "ADMIN";
+
+async function requireInvitationManager(
+  ctx: MutationCtx,
+  workspaceId: Id<"workspaces">,
+  role: InvitationRole,
+) {
+  const actor = await requireWorkspaceRole(ctx, workspaceId, "ADMIN");
+  if (role === "ADMIN" && actor.membership.role !== "OWNER") {
+    throw new Error("Only workspace owners can invite admins");
+  }
+  const workspace = await ctx.db.get(workspaceId);
+  if (workspace === null) throw new Error("Workspace not found");
+  if (workspace.isPersonal) throw new Error("Personal workspaces cannot invite members");
+  return actor;
+}
 
 export async function listPendingInvitations(
   ctx: QueryCtx,
@@ -26,9 +44,26 @@ export async function createInvitation(
   ctx: MutationCtx,
   workspaceId: Id<"workspaces">,
   email: string,
+  role: InvitationRole = "MEMBER",
 ) {
-  const { userId } = await requireWorkspaceRole(ctx, workspaceId, "ADMIN");
+  const { userId } = await requireInvitationManager(ctx, workspaceId, role);
   const normalizedEmail = normalizeInvitationEmail(email);
+  const pending = await ctx.db
+    .query("invitations")
+    .withIndex("by_email_workspace", (q) =>
+      q.eq("email", normalizedEmail).eq("workspaceId", workspaceId),
+    )
+    .collect();
+  if (
+    pending.some(
+      (invitation) =>
+        invitation.acceptedAt === undefined &&
+        invitation.revokedAt === undefined &&
+        invitation.expiresAt >= Date.now(),
+    )
+  ) {
+    throw new Error("A pending invitation already exists for this email");
+  }
   const token = makeInvitationToken();
   const now = Date.now();
   const invitationId = await ctx.db.insert("invitations", {
@@ -36,6 +71,7 @@ export async function createInvitation(
     tokenHash: await hashInvitationToken(token),
     workspaceId,
     invitedById: userId,
+    role,
     expiresAt: newInvitationExpiry(now),
     createdAt: now,
   });
@@ -44,6 +80,39 @@ export async function createInvitation(
     throw new Error("Invitation not found after create");
   }
   return { ...invitationDto(invitation), token, invitePath: `/invite/${token}` };
+}
+
+export async function revokeInvitation(
+  ctx: MutationCtx,
+  workspaceId: Id<"workspaces">,
+  invitationId: Id<"invitations">,
+) {
+  const invitation = await getInvitationInWorkspace(ctx, workspaceId, invitationId);
+  await requireInvitationManager(ctx, workspaceId, invitation.role ?? "MEMBER");
+  if (invitation.acceptedAt !== undefined) throw new Error("Accepted invitations cannot be revoked");
+  await ctx.db.patch(invitationId, { revokedAt: Date.now() });
+  return null;
+}
+
+export async function resendInvitation(
+  ctx: MutationCtx,
+  workspaceId: Id<"workspaces">,
+  invitationId: Id<"invitations">,
+) {
+  const invitation = await getInvitationInWorkspace(ctx, workspaceId, invitationId);
+  await requireInvitationManager(ctx, workspaceId, invitation.role ?? "MEMBER");
+  if (invitation.acceptedAt !== undefined) throw new Error("Accepted invitations cannot be resent");
+  const token = makeInvitationToken();
+  const now = Date.now();
+  await ctx.db.patch(invitationId, {
+    tokenHash: await hashInvitationToken(token),
+    expiresAt: newInvitationExpiry(now),
+    revokedAt: undefined,
+    createdAt: now,
+  });
+  const updated = await ctx.db.get(invitationId);
+  if (updated === null) throw new Error("Invitation not found after resend");
+  return { ...invitationDto(updated), token, invitePath: `/invite/${token}` };
 }
 
 export async function validateInvitation(
@@ -76,7 +145,7 @@ export async function acceptInvitation(ctx: MutationCtx, token: string) {
     await ctx.db.insert("workspaceMembers", {
       workspaceId: invitation.workspaceId,
       userId,
-      role: "MEMBER",
+      role: invitation.role ?? "MEMBER",
       joinedAt: Date.now(),
     });
   }

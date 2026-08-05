@@ -53,11 +53,16 @@ export function invitationDto(invitation: Doc<"invitations">) {
     email: invitation.email,
     workspaceId: invitation.workspaceId,
     invitedById: invitation.invitedById,
+    role: invitation.role ?? "MEMBER",
     expiresAt: new Date(invitation.expiresAt).toISOString(),
     acceptedAt:
       invitation.acceptedAt === undefined
         ? null
         : new Date(invitation.acceptedAt).toISOString(),
+    revokedAt:
+      invitation.revokedAt === undefined
+        ? null
+        : new Date(invitation.revokedAt).toISOString(),
     createdAt: new Date(invitation.createdAt).toISOString(),
   };
 }
@@ -75,6 +80,9 @@ export async function getInvitationByToken(
   if (invitation.acceptedAt !== undefined) {
     throw new InvitationInvalidError("Invitation already accepted");
   }
+  if (invitation.revokedAt !== undefined) {
+    throw new InvitationInvalidError("Invitation has been revoked");
+  }
   if (invitation.expiresAt < Date.now()) throw new InvitationExpiredError();
   return invitation;
 }
@@ -88,6 +96,23 @@ export async function listPendingInvitationsForWorkspace(
     .withIndex("by_workspace", (q) => q.eq("workspaceId", workspaceId))
     .collect();
   return rows
-    .filter((row) => row.acceptedAt === undefined)
+    .filter(
+      (row) =>
+        row.acceptedAt === undefined &&
+        row.revokedAt === undefined &&
+        row.expiresAt >= Date.now(),
+    )
     .sort((a, b) => b.createdAt - a.createdAt);
+}
+
+export async function getInvitationInWorkspace(
+  ctx: DbCtx,
+  workspaceId: Id<"workspaces">,
+  invitationId: Id<"invitations">,
+) {
+  const invitation = await ctx.db.get(invitationId);
+  if (invitation === null || invitation.workspaceId !== workspaceId) {
+    throw new InvitationInvalidError("Invitation not found");
+  }
+  return invitation;
 }

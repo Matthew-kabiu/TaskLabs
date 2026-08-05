@@ -43,6 +43,17 @@ export const get = query({
   handler: async (ctx) => await userDto(ctx, await requireUserId(ctx)),
 });
 
+export const adminContact = query({
+  args: {},
+  handler: async (ctx) => {
+    const [admin] = await ctx.db
+      .query("users")
+      .withIndex("by_platform_role", (q) => q.eq("platformRole", "ADMIN"))
+      .take(1);
+    return admin?.email ? { email: admin.email } : null;
+  },
+});
+
 export const update = mutation({
   args: {
     name: v.optional(v.string()),
