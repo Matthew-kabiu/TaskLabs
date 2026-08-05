@@ -88,6 +88,7 @@ export function taskDto(
     number: task.number,
     workspaceId: task.workspaceId,
     creatorId: task.creatorId,
+    projectId: task.projectId ?? null,
     title: task.title,
     description: task.description ?? null,
     status: task.status,

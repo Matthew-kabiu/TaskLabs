@@ -3,6 +3,8 @@ import type { WorkspaceRole } from "../lib/auth";
 export const API_KEY_SCOPES = [
   "tasks:read",
   "tasks:write",
+  "projects:read",
+  "projects:write",
   "events:read",
   "events:write",
   "labels:read",

@@ -28,6 +28,7 @@ export type ListTaskFilters = {
   sort?: TaskSort;
   dueFrom?: number | string;
   dueTo?: number | string;
+  projectId?: Id<"projects"> | null;
 };
 
 export type CreateTaskInput = {
@@ -40,6 +41,7 @@ export type CreateTaskInput = {
   position?: number;
   assigneeIds?: Id<"users">[];
   labelIds?: Id<"labels">[];
+  projectId?: Id<"projects">;
 };
 
 export type UpdateTaskInput = {
@@ -53,6 +55,7 @@ export type UpdateTaskInput = {
   position?: number;
   assigneeIds?: Id<"users">[];
   labelIds?: Id<"labels">[];
+  projectId?: Id<"projects"> | null;
 };
 
 function ensureFinitePosition(position: number) {
@@ -102,6 +105,21 @@ async function validateLabels(
     }
   }
   return ids;
+}
+
+async function validateProjectId(
+  ctx: MutationCtx,
+  workspaceId: Id<"workspaces">,
+  projectId: Id<"projects"> | null | undefined,
+) {
+  if (projectId === undefined || projectId === null) {
+    return undefined;
+  }
+  const project = await ctx.db.get(projectId);
+  if (project === null || project.workspaceId !== workspaceId) {
+    throw new Error("Task project must belong to the workspace");
+  }
+  return projectId;
 }
 
 async function replaceAssignees(
@@ -213,6 +231,10 @@ export async function listTasksForActor(
     if (!canReadTask(task, userId)) return false;
     if (filters.status !== undefined && task.status !== filters.status) return false;
     if (filters.priority !== undefined && task.priority !== filters.priority) return false;
+    if (filters.projectId !== undefined) {
+      const taskProject = task.projectId ?? null;
+      if (taskProject !== filters.projectId) return false;
+    }
     if (dueFrom !== undefined && (task.dueDate ?? 0) < dueFrom) return false;
     if (dueTo !== undefined && (task.dueDate ?? Number.POSITIVE_INFINITY) > dueTo) {
       return false;
@@ -275,6 +297,7 @@ export async function createTaskForActor(
   }
   const assigneeIds = await validateAssignees(ctx, workspaceId, input.assigneeIds);
   const labelIds = await validateLabels(ctx, workspaceId, input.labelIds);
+  const projectId = await validateProjectId(ctx, workspaceId, input.projectId);
 
   const status = input.status ?? "TODO";
   const now = Date.now();
@@ -294,6 +317,7 @@ export async function createTaskForActor(
     dueDate: parseOptionalTime(input.dueDate),
     position,
     isPrivate: input.isPrivate ?? false,
+    projectId,
     createdAt: now,
     updatedAt: now,
   });
@@ -340,6 +364,7 @@ export async function updateTaskForActor(
   }
   const assigneeIds = await validateAssignees(ctx, workspaceId, input.assigneeIds);
   const labelIds = await validateLabels(ctx, workspaceId, input.labelIds);
+  const projectId = await validateProjectId(ctx, workspaceId, input.projectId);
 
   const existing = await getTaskInWorkspace(ctx, workspaceId, taskId);
   if (existing.isPrivate && existing.creatorId !== userId) {
@@ -376,6 +401,11 @@ export async function updateTaskForActor(
   }
   if (input.isPrivate !== undefined) {
     patch.isPrivate = input.isPrivate;
+  }
+  if (input.projectId === null) {
+    patch.projectId = undefined;
+  } else if (input.projectId !== undefined) {
+    patch.projectId = projectId;
   }
   if (input.position !== undefined) {
     patch.position = ensureFinitePosition(input.position);

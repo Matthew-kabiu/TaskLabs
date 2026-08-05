@@ -82,6 +82,9 @@ export default defineSchema({
     completedAt: v.optional(v.number()),
     position: v.number(), // kanban ordering within a status column
     isPrivate: v.boolean(),
+    // Optional project linkage. A task belongs to at most one project, or to
+    // "no project" when undefined. Deleting a project cascades to its tasks.
+    projectId: v.optional(v.id("projects")),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
@@ -89,6 +92,7 @@ export default defineSchema({
     .index("by_workspace_number", ["workspaceId", "number"])
     .index("by_workspace_status", ["workspaceId", "status"])
     .index("by_workspace_due_date", ["workspaceId", "dueDate"])
+    .index("by_workspace_project", ["workspaceId", "projectId"])
     .searchIndex("search_title", {
       searchField: "title",
       filterFields: ["workspaceId"],
@@ -103,6 +107,64 @@ export default defineSchema({
     .index("by_task", ["taskId"])
     .index("by_user", ["userId"])
     .index("by_task_user", ["taskId", "userId"])
+    .index("by_workspace", ["workspaceId"]),
+
+  projects: defineTable({
+    workspaceId: v.id("workspaces"),
+    creatorId: v.id("users"),
+    title: v.string(),
+    description: v.optional(v.string()),
+    status: v.union(
+      v.literal("PLANNING"),
+      v.literal("IN_PROGRESS"),
+      v.literal("ON_HOLD"),
+      v.literal("COMPLETED"),
+      v.literal("CANCELLED"),
+      v.literal("ARCHIVED"),
+    ),
+    priority: v.union(
+      v.literal("LOW"),
+      v.literal("MEDIUM"),
+      v.literal("HIGH"),
+      v.literal("URGENT"),
+    ),
+    memberIds: v.array(v.id("users")),
+    startDate: v.optional(v.number()),
+    endDate: v.optional(v.number()),
+    resources: v.array(
+      v.object({
+        label: v.string(),
+        type: v.union(
+          v.literal("WEBSITE"),
+          v.literal("FORM"),
+          v.literal("DATABASE"),
+          v.literal("GITHUB"),
+          v.literal("COMMUNICATION"),
+          v.literal("CUSTOM"),
+        ),
+        url: v.string(),
+      }),
+    ),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_workspace", ["workspaceId"])
+    .index("by_workspace_status", ["workspaceId", "status"])
+    .searchIndex("search_title", {
+      searchField: "title",
+      filterFields: ["workspaceId"],
+    }),
+
+  projectUpdates: defineTable({
+    workspaceId: v.id("workspaces"),
+    projectId: v.id("projects"),
+    authorId: v.id("users"),
+    body: v.string(),
+    editedAt: v.optional(v.number()),
+    createdAt: v.number(),
+  })
+    .index("by_project", ["projectId"])
+    .index("by_project_created", ["projectId", "createdAt"])
     .index("by_workspace", ["workspaceId"]),
 
   labels: defineTable({
@@ -181,8 +243,10 @@ export default defineSchema({
     tokenHash: v.string(),
     workspaceId: v.id("workspaces"),
     invitedById: v.id("users"),
+    role: v.optional(v.union(v.literal("MEMBER"), v.literal("ADMIN"))),
     expiresAt: v.number(),
     acceptedAt: v.optional(v.number()),
+    revokedAt: v.optional(v.number()),
     createdAt: v.number(),
   })
     .index("by_token_hash", ["tokenHash"])
@@ -205,6 +269,8 @@ export default defineSchema({
       v.union(
         v.literal("tasks:read"),
         v.literal("tasks:write"),
+        v.literal("projects:read"),
+        v.literal("projects:write"),
         v.literal("events:read"),
         v.literal("events:write"),
         v.literal("labels:read"),

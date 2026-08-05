@@ -5,6 +5,7 @@ import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { requireMembership, requireMembershipForUser } from "./lib/auth";
 import { canReadEvent, eventDto } from "./events/model";
 import { canReadTask, taskDto, taskRelationsDto } from "./tasks/model";
+import { projectDto } from "./projects/model";
 
 function normalizeQuery(q: string) {
   const trimmed = q.trim().toLowerCase();
@@ -50,10 +51,10 @@ export async function searchWorkspaceForActor(
       throw new Error("Search limit must be an integer from 1 to 25");
     }
     if (q.length < 1) {
-      return { tasks: [], events: [], labels: [] };
+      return { tasks: [], events: [], labels: [], projects: [] };
     }
 
-    const [taskRows, eventRows, labelRows] = await Promise.all([
+    const [taskRows, eventRows, labelRows, projectRows] = await Promise.all([
       ctx.db
         .query("tasks")
         .withIndex("by_workspace", (builder) =>
@@ -68,6 +69,12 @@ export async function searchWorkspaceForActor(
         .collect(),
       ctx.db
         .query("labels")
+        .withIndex("by_workspace", (builder) =>
+          builder.eq("workspaceId", workspaceId),
+        )
+        .collect(),
+      ctx.db
+        .query("projects")
         .withIndex("by_workspace", (builder) =>
           builder.eq("workspaceId", workspaceId),
         )
@@ -98,7 +105,7 @@ export async function searchWorkspaceForActor(
       .slice(0, limit)
       .map((event) => eventDto(event));
 
-    const labels = labelRows
+const labels = labelRows
       .filter((label) => label.name.toLowerCase().includes(q))
       .slice(0, limit)
       .map((label) => ({
@@ -108,5 +115,14 @@ export async function searchWorkspaceForActor(
         color: label.color,
       }));
 
-    return { tasks, events, labels };
-}
+    const projects = projectRows
+      .filter((project) =>
+        `${project.title}\n${project.description ?? ""}`
+          .toLowerCase()
+          .includes(q),
+      )
+      .slice(0, limit)
+      .map(projectDto);
+
+    return { tasks, events, labels, projects };
+  }

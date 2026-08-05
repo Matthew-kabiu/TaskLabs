@@ -23,6 +23,7 @@ export const list = query({
     sort: v.optional(taskSort),
     dueFrom: optionalTime,
     dueTo: optionalTime,
+    projectId: v.optional(v.union(v.id("projects"), v.null())),
   },
   handler: async (ctx, args) => await listTasks(ctx, args.workspaceId, args),
 });
@@ -45,6 +46,7 @@ export const create = mutation({
     position: v.optional(v.number()),
     assigneeIds: v.optional(v.array(v.id("users"))),
     labelIds: v.optional(v.array(v.id("labels"))),
+    projectId: v.optional(v.id("projects")),
   },
   handler: async (ctx, args) => await createTask(ctx, args.workspaceId, args),
 });
@@ -63,6 +65,7 @@ export const update = mutation({
     position: v.optional(v.number()),
     assigneeIds: v.optional(v.array(v.id("users"))),
     labelIds: v.optional(v.array(v.id("labels"))),
+    projectId: v.optional(v.union(v.id("projects"), v.null())),
   },
   handler: async (ctx, args) =>
     await updateTask(ctx, args.workspaceId, args.taskId, args),

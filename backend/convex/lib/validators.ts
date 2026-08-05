@@ -31,6 +31,30 @@ export const taskSort = v.union(
   v.literal("title"),
 );
 
+export const projectStatus = v.union(
+  v.literal("PLANNING"),
+  v.literal("IN_PROGRESS"),
+  v.literal("ON_HOLD"),
+  v.literal("COMPLETED"),
+  v.literal("CANCELLED"),
+  v.literal("ARCHIVED"),
+);
+
+export const projectResourceType = v.union(
+  v.literal("WEBSITE"),
+  v.literal("FORM"),
+  v.literal("DATABASE"),
+  v.literal("GITHUB"),
+  v.literal("COMMUNICATION"),
+  v.literal("CUSTOM"),
+);
+
+export const projectResource = v.object({
+  label: v.string(),
+  type: projectResourceType,
+  url: v.string(),
+});
+
 export const eventStatus = v.union(
   v.literal("SCHEDULED"),
   v.literal("COMPLETED"),
@@ -71,6 +95,8 @@ export const platformRole = v.union(v.literal("ADMIN"), v.literal("MEMBER"));
 export const apiKeyScope = v.union(
   v.literal("tasks:read"),
   v.literal("tasks:write"),
+  v.literal("projects:read"),
+  v.literal("projects:write"),
   v.literal("events:read"),
   v.literal("events:write"),
   v.literal("labels:read"),

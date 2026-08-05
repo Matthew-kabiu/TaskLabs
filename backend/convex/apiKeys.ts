@@ -36,6 +36,16 @@ import {
   updateLabelForActor,
 } from "./labels/service";
 import {
+  addProjectUpdateForActor,
+  createProjectForActor,
+  getProjectForActor,
+  listProjectUpdatesForActor,
+  listProjectsForActor,
+  removeProjectForActor,
+  removeProjectUpdateForActor,
+  updateProjectForActor,
+} from "./projects/service";
+import {
   getWorkspaceForActor,
   listMembersForActor,
   removeMemberForActor,
@@ -61,6 +71,14 @@ const MCP_TOOL_SCOPES: Record<string, ApiKeyScope[]> = {
   "tasks.delete": ["tasks:write"],
   "tasks.deleteMany": ["tasks:write"],
   "tasks.reorder": ["tasks:write"],
+  "projects.list": ["projects:read"],
+  "projects.get": ["projects:read"],
+  "projects.create": ["projects:write"],
+  "projects.update": ["projects:write"],
+  "projects.delete": ["projects:write"],
+  "projects.updates.list": ["projects:read"],
+  "projects.updates.create": ["projects:write"],
+  "projects.updates.delete": ["projects:write"],
   "events.list": ["events:read"],
   "events.get": ["events:read"],
   "events.create": ["events:write"],
@@ -142,6 +160,21 @@ function optionalIds(input: Record<string, unknown>, key: string) {
   const value = input[key];
   if (!Array.isArray(value)) return undefined;
   return value.filter((item): item is string => typeof item === "string");
+}
+
+function optionalResources(input: Record<string, unknown>, key: string) {
+  const value = input[key];
+  if (!Array.isArray(value)) return undefined;
+  return value.flatMap((item) => {
+    const row = record(item);
+    const label = optionalString(row, "label");
+    const type = optionalString(row, "type");
+    const url = optionalString(row, "url");
+    if (label === undefined || type === undefined || url === undefined) {
+      return [];
+    }
+    return [{ label, type, url }];
+  });
 }
 
 function optionalWorkspaceCheck(
@@ -247,6 +280,10 @@ export const mcpDispatchMutation = internalMutation({
           sort: optionalString(input, "sort") as any,
           dueFrom: optionalTime(input, "dueFrom") ?? undefined,
           dueTo: optionalTime(input, "dueTo") ?? undefined,
+          projectId: optionalStringOrNull(input, "projectId") as
+            | Id<"projects">
+            | null
+            | undefined,
         }, true);
       case "tasks.get":
         return await getTaskForActor(
@@ -271,6 +308,9 @@ export const mcpDispatchMutation = internalMutation({
           labelIds: optionalIds(input, "labelIds") as
             | Id<"labels">[]
             | undefined,
+          projectId: optionalString(input, "projectId") as
+            | Id<"projects">
+            | undefined,
         }, true);
       case "tasks.update":
         return await updateTaskForActor(
@@ -292,6 +332,10 @@ export const mcpDispatchMutation = internalMutation({
               | undefined,
             labelIds: optionalIds(input, "labelIds") as
               | Id<"labels">[]
+              | undefined,
+            projectId: optionalStringOrNull(input, "projectId") as
+              | Id<"projects">
+              | null
               | undefined,
           },
           true,
@@ -329,9 +373,86 @@ export const mcpDispatchMutation = internalMutation({
               position: Number(row.position),
             };
           }),
-          true,
+true,
         );
       }
+      case "projects.list":
+        return await listProjectsForActor(ctx, actor.workspaceId, actor.userId, {
+          status: optionalString(input, "status") as any,
+          priority: optionalString(input, "priority") as any,
+          q: optionalString(input, "q"),
+        }, true);
+      case "projects.get":
+        return await getProjectForActor(
+          ctx,
+          actor.workspaceId,
+          actor.userId,
+          stringArg(input, "projectId") as Id<"projects">,
+          true,
+        );
+      case "projects.create":
+        return await createProjectForActor(ctx, actor.workspaceId, actor.userId, {
+          title: stringArg(input, "title"),
+          description: optionalString(input, "description"),
+          status: optionalString(input, "status") as any,
+          priority: optionalString(input, "priority") as any,
+          memberIds: optionalIds(input, "memberIds") as Id<"users">[] | undefined,
+          startDate: optionalTime(input, "startDate") ?? undefined,
+          endDate: optionalTime(input, "endDate") ?? undefined,
+          resources: optionalResources(input, "resources") as any,
+        }, true);
+      case "projects.update":
+        return await updateProjectForActor(
+          ctx,
+          actor.workspaceId,
+          actor.userId,
+          stringArg(input, "projectId") as Id<"projects">,
+          {
+            title: optionalString(input, "title"),
+            description: optionalStringOrNull(input, "description"),
+            status: optionalString(input, "status") as any,
+            priority: optionalString(input, "priority") as any,
+            memberIds: optionalIds(input, "memberIds") as Id<"users">[] | undefined,
+            startDate: optionalStringOrNull(input, "startDate"),
+            endDate: optionalStringOrNull(input, "endDate"),
+            resources: optionalResources(input, "resources") as any,
+          },
+          true,
+        );
+      case "projects.delete":
+        return await removeProjectForActor(
+          ctx,
+          actor.workspaceId,
+          actor.userId,
+          stringArg(input, "projectId") as Id<"projects">,
+          true,
+        );
+      case "projects.updates.list":
+        return await listProjectUpdatesForActor(
+          ctx,
+          actor.workspaceId,
+          actor.userId,
+          stringArg(input, "projectId") as Id<"projects">,
+          true,
+        );
+      case "projects.updates.create":
+        return await addProjectUpdateForActor(
+          ctx,
+          actor.workspaceId,
+          actor.userId,
+          stringArg(input, "projectId") as Id<"projects">,
+          stringArg(input, "body"),
+          true,
+        );
+      case "projects.updates.delete":
+        return await removeProjectUpdateForActor(
+          ctx,
+          actor.workspaceId,
+          actor.userId,
+          stringArg(input, "projectId") as Id<"projects">,
+          stringArg(input, "updateId") as Id<"projectUpdates">,
+          true,
+        );
       case "events.list":
         return await listEventsForActor(
           ctx,
