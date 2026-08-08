@@ -9,6 +9,7 @@ import {
   listProjects,
   removeProject,
   removeProjectUpdate,
+  setProjectFavorite,
   updateProject,
 } from "./projects/service";
 
@@ -38,6 +39,7 @@ export const create = mutation({
     status: v.optional(projectStatus),
     priority: v.optional(taskPriority),
     memberIds: v.optional(v.array(v.id("users"))),
+    leadId: v.optional(v.id("users")),
     startDate: optionalTime,
     endDate: optionalTime,
     resources: v.optional(v.array(projectResource)),
@@ -54,6 +56,7 @@ export const update = mutation({
     status: v.optional(projectStatus),
     priority: v.optional(taskPriority),
     memberIds: v.optional(v.array(v.id("users"))),
+    leadId: v.optional(v.id("users")),
     startDate: optionalTime,
     endDate: optionalTime,
     resources: v.optional(v.array(projectResource)),
@@ -66,6 +69,21 @@ export const remove = mutation({
   args: { workspaceId: v.id("workspaces"), projectId: v.id("projects") },
   handler: async (ctx, args) =>
     await removeProject(ctx, args.workspaceId, args.projectId),
+});
+
+export const setFavorite = mutation({
+  args: {
+    workspaceId: v.id("workspaces"),
+    projectId: v.id("projects"),
+    isFavorite: v.boolean(),
+  },
+  handler: async (ctx, args) =>
+    await setProjectFavorite(
+      ctx,
+      args.workspaceId,
+      args.projectId,
+      args.isFavorite,
+    ),
 });
 
 export const updatesList = query({

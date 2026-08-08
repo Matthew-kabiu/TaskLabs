@@ -21,12 +21,12 @@ export const metadata: Metadata = {
 
 const SCOPE_ROWS: [string, string][] = [
   ['tasks:read / tasks:write', 'Task list/get and mutation MCP tools'],
-  ['projects:read / projects:write', 'Project CRUD, task filtering, and project updates'],
+  ['projects:read / projects:write', 'Project CRUD, leads, favorites, task filtering, and updates'],
   ['events:read / events:write', 'Calendar event list/get and mutation tools'],
   ['labels:read / labels:write', 'Workspace label MCP tools'],
   ['workspaces:read / workspaces:admin', 'Workspace metadata; admin scope reserved'],
   ['members:read / members:admin', 'Workspace members list/update/remove'],
-  ['notifications:read / notifications:write', 'Notification list and mark-read tools'],
+  ['notifications:read / notifications:write', 'Notification list, unread-count, and mark-read tools'],
   ['search:read', 'Workspace search'],
   ['profile:read / profile:write', 'Non-credential profile fields'],
   ['telegram:read / telegram:test', 'Telegram status and test send'],
@@ -96,6 +96,7 @@ export default function DocsMcpPage() {
           <>The request Host (or first proxy-forwarded host) must match an allowed origin.</>,
           <>Browser Origin, when present, must match an allowed origin.</>,
           <>Tool errors return MCP results with <DocsInlineCode>isError: true</DocsInlineCode>; stack traces are never returned.</>,
+          <>Rate limits return HTTP 429, <DocsInlineCode>Retry-After</DocsInlineCode>, and JSON-RPC code <DocsInlineCode>-32029</DocsInlineCode> with <DocsInlineCode>retryAfterMs</DocsInlineCode>.</>,
         ]}
       />
 
@@ -121,11 +122,11 @@ export default function DocsMcpPage() {
       <DocsList
         items={[
           <><strong>tasks</strong> — list, get, create, update, delete, deleteMany, reorder</>,
-          <><strong>projects</strong> — list, get, create, update, delete, updates list/create/delete</>,
+          <><strong>projects</strong> — list, get, create, update, delete, favorite, updates list/create/delete</>,
           <><strong>events</strong> — list, get, create, update, delete, complete</>,
           <><strong>labels</strong> — list, create, update, delete</>,
           <><strong>workspaces</strong> — list, get, members list/update/remove</>,
-          <><strong>notifications</strong> — list, markRead, markAllRead</>,
+          <><strong>notifications</strong> — list, unread, markRead, markAllRead</>,
           <><strong>search</strong> — query</>,
           <><strong>profile</strong> — get, update</>,
           <><strong>telegram</strong> — status, test</>,
@@ -145,6 +146,42 @@ export default function DocsMcpPage() {
         Task list/create/update tools accept <DocsInlineCode>projectId</DocsInlineCode>.
         Deleting a project cascades to its linked tasks, task relations, and
         project updates.
+      </DocsP>
+      <DocsP>
+        <DocsInlineCode>tasks.create</DocsInlineCode> requires a caller-generated{' '}
+        <DocsInlineCode>idempotencyKey</DocsInlineCode>. Retrying the same input
+        with the same key returns the existing task; reusing a key with different
+        input is rejected. Treat returned task IDs as opaque and pass them
+        unchanged to get, update, and delete.
+      </DocsP>
+      <DocsP>
+        Project create/update tools accept <DocsInlineCode>leadId</DocsInlineCode>.
+        Leads must belong to the workspace and default to the creator. Project
+        responses include the caller’s <DocsInlineCode>isFavorite</DocsInlineCode>{' '}
+        state; <DocsInlineCode>projects.favorite</DocsInlineCode> updates that
+        personal sidebar pin.
+      </DocsP>
+      <DocsP>
+        <DocsInlineCode>projects.updates.create</DocsInlineCode> accepts
+        GitHub-flavored Markdown in its <DocsInlineCode>body</DocsInlineCode>, up
+        to 10,000 characters. The web app renders the same format without raw
+        HTML or embedded images.
+      </DocsP>
+      <DocsP>
+        A project’s <DocsInlineCode>endDate</DocsInlineCode> must be equal to or
+        later than its <DocsInlineCode>startDate</DocsInlineCode>. Create and
+        update calls reject invalid effective date ranges.
+      </DocsP>
+      <DocsP>
+        Timestamp fields accept ISO strings or numeric timestamps consistently
+        with the public Convex functions. <DocsInlineCode>profile.update</DocsInlineCode>{' '}
+        covers non-credential reminder preferences, and malformed IDs, resources,
+        required booleans, or timestamps are rejected instead of coerced.
+      </DocsP>
+      <DocsP>
+        Blocked work uses <DocsInlineCode>BACKLOG</DocsInlineCode> plus a blocked
+        label. <DocsInlineCode>BLOCKED</DocsInlineCode> is not a task status and
+        is rejected with the allowed values.
       </DocsP>
 
       <DocsH2 id="clients">Configuring MCP clients</DocsH2>

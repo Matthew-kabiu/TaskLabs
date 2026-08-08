@@ -218,7 +218,7 @@ describe("api keys", () => {
     const task = await t.action(apiAny.apiKeys.mcpDispatch, {
       token: created.token,
       toolName: "tasks.create",
-      input: { title: "Created by MCP" },
+      input: { idempotencyKey: "create-task-1", title: "Created by MCP" },
     });
     expect(task).toMatchObject({
       workspaceId: workspace.id,
@@ -244,7 +244,7 @@ describe("api keys", () => {
       t.action(apiAny.apiKeys.mcpDispatch, {
         token: readOnly.token,
         toolName: "tasks.create",
-        input: { title: "Blocked" },
+        input: { idempotencyKey: "blocked-task", title: "Blocked" },
       }),
     ).rejects.toThrow("Insufficient API key scope");
   });
@@ -274,12 +274,12 @@ describe("api keys", () => {
     const first = await t.action(apiAny.apiKeys.mcpDispatch, {
       token: created.token,
       toolName: "tasks.create",
-      input: { title: "First" },
+      input: { idempotencyKey: "batch-first", title: "First" },
     });
     const second = await t.action(apiAny.apiKeys.mcpDispatch, {
       token: created.token,
       toolName: "tasks.create",
-      input: { title: "Second" },
+      input: { idempotencyKey: "batch-second", title: "Second" },
     });
 
     const result = await t.action(apiAny.apiKeys.mcpDispatch, {
@@ -295,5 +295,143 @@ describe("api keys", () => {
       input: {},
     });
     expect(list).toEqual([]);
+  });
+
+  test("makes MCP task creation idempotent and preserves opaque IDs across tools", async () => {
+    const t = testBackend();
+    const userId = await seedUser(t, {
+      email: "mcp-idempotency@example.com",
+      name: "MCP Idempotency",
+    });
+    const asUser = t.withIdentity({
+      subject: userId,
+      email: "mcp-idempotency@example.com",
+    });
+    const workspace = requireValue(
+      await asUser.mutation(apiAny.workspaces.ensurePersonal, {
+        name: "MCP Idempotency Workspace",
+      }),
+      "workspace",
+    );
+    const key = await asUser.mutation(apiAny.apiKeys.create, {
+      workspaceId: workspace.id,
+      name: "MCP Idempotency",
+      scopes: ["tasks:read", "tasks:write"],
+    });
+    const input = {
+      idempotencyKey: "opaque-round-trip",
+      title: "Create exactly once",
+      status: "TODO",
+    };
+
+    const created = await t.action(apiAny.apiKeys.mcpDispatch, {
+      token: key.token,
+      toolName: "tasks.create",
+      input,
+    });
+    const replayed = await t.action(apiAny.apiKeys.mcpDispatch, {
+      token: key.token,
+      toolName: "tasks.create",
+      input,
+    });
+    expect(replayed.id).toBe(created.id);
+
+    await expect(
+      t.action(apiAny.apiKeys.mcpDispatch, {
+        token: key.token,
+        toolName: "tasks.create",
+        input: { ...input, title: "Different input" },
+      }),
+    ).rejects.toThrow("idempotencyKey was already used with different task input");
+
+    const listed = await t.action(apiAny.apiKeys.mcpDispatch, {
+      token: key.token,
+      toolName: "tasks.list",
+      input: {},
+    });
+    expect(listed).toHaveLength(1);
+    expect(listed[0].id).toBe(created.id);
+
+    const fetched = await t.action(apiAny.apiKeys.mcpDispatch, {
+      token: key.token,
+      toolName: "tasks.get",
+      input: { taskId: created.id },
+    });
+    expect(fetched.id).toBe(created.id);
+    const updated = await t.action(apiAny.apiKeys.mcpDispatch, {
+      token: key.token,
+      toolName: "tasks.update",
+      input: { taskId: created.id, title: "Updated through the same ID" },
+    });
+    expect(updated.id).toBe(created.id);
+    await t.action(apiAny.apiKeys.mcpDispatch, {
+      token: key.token,
+      toolName: "tasks.delete",
+      input: { taskId: created.id },
+    });
+    expect(
+      await t.action(apiAny.apiKeys.mcpDispatch, {
+        token: key.token,
+        toolName: "tasks.list",
+        input: {},
+      }),
+    ).toEqual([]);
+  });
+
+  test("returns deterministic task status errors and structured rate limits", async () => {
+    const t = testBackend();
+    const userId = await seedUser(t, {
+      email: "mcp-rate@example.com",
+      name: "MCP Rate",
+    });
+    const asUser = t.withIdentity({ subject: userId, email: "mcp-rate@example.com" });
+    const workspace = requireValue(
+      await asUser.mutation(apiAny.workspaces.ensurePersonal, {
+        name: "MCP Rate Workspace",
+      }),
+      "workspace",
+    );
+    const key = await asUser.mutation(apiAny.apiKeys.create, {
+      workspaceId: workspace.id,
+      name: "MCP Rate",
+      scopes: ["tasks:read", "tasks:write"],
+    });
+
+    await expect(
+      t.action(apiAny.apiKeys.mcpDispatch, {
+        token: key.token,
+        toolName: "tasks.create",
+        input: {
+          idempotencyKey: "invalid-status",
+          title: "Blocked",
+          status: "BLOCKED",
+        },
+      }),
+    ).rejects.toThrow(
+      "status must be one of BACKLOG, TODO, IN_PROGRESS, IN_REVIEW, DONE, CANCELLED, ARCHIVED; represent blocked work as BACKLOG plus a blocked label",
+    );
+
+    let rateLimitError: unknown;
+    for (let call = 0; call < 50 && rateLimitError === undefined; call += 1) {
+      try {
+        await t.action(apiAny.apiKeys.mcpDispatch, {
+          token: key.token,
+          toolName: "tasks.list",
+          input: {},
+        });
+      } catch (error) {
+        rateLimitError = error;
+      }
+    }
+    expect(rateLimitError).toMatchObject({
+      data: {
+        kind: "RateLimited",
+        name: "apiKeyVerify",
+        retryAfter: expect.any(Number),
+      },
+    });
+    expect(
+      (rateLimitError as { data: { retryAfter: number } }).data.retryAfter,
+    ).toBeGreaterThan(0);
   });
 });

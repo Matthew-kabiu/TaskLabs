@@ -112,6 +112,7 @@ export default defineSchema({
   projects: defineTable({
     workspaceId: v.id("workspaces"),
     creatorId: v.id("users"),
+    leadId: v.optional(v.id("users")),
     title: v.string(),
     description: v.optional(v.string()),
     status: v.union(
@@ -166,6 +167,16 @@ export default defineSchema({
     .index("by_project", ["projectId"])
     .index("by_project_created", ["projectId", "createdAt"])
     .index("by_workspace", ["workspaceId"]),
+
+  projectFavorites: defineTable({
+    workspaceId: v.id("workspaces"),
+    projectId: v.id("projects"),
+    userId: v.id("users"),
+    createdAt: v.number(),
+  })
+    .index("by_workspace_user", ["workspaceId", "userId"])
+    .index("by_project_user", ["projectId", "userId"])
+    .index("by_project", ["projectId"]),
 
   labels: defineTable({
     workspaceId: v.id("workspaces"),
@@ -300,4 +311,16 @@ export default defineSchema({
     .index("by_user_workspace", ["userId", "workspaceId"])
     .index("by_workspace_revoked", ["workspaceId", "revokedAt"])
     .index("by_prefix_revoked", ["prefix", "revokedAt"]),
+
+  mcpIdempotency: defineTable({
+    apiKeyId: v.id("apiKeys"),
+    workspaceId: v.id("workspaces"),
+    operation: v.string(),
+    key: v.string(),
+    inputFingerprint: v.string(),
+    taskId: v.id("tasks"),
+    createdAt: v.number(),
+  })
+    .index("by_api_key", ["apiKeyId"])
+    .index("by_api_key_operation_key", ["apiKeyId", "operation", "key"]),
 });

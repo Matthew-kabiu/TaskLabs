@@ -100,11 +100,13 @@ export function normalizeResources(resources?: ProjectResource[]) {
   }));
 }
 
-export function projectDto(project: Doc<"projects">) {
+export function projectDto(project: Doc<"projects">, isFavorite = false) {
   return {
     id: project._id,
     workspaceId: project.workspaceId,
     creatorId: project.creatorId,
+    leadId: project.leadId ?? project.creatorId,
+    isFavorite,
     title: project.title,
     description: project.description ?? null,
     status: project.status,
@@ -118,6 +120,32 @@ export function projectDto(project: Doc<"projects">) {
     createdAt: new Date(project.createdAt).toISOString(),
     updatedAt: new Date(project.updatedAt).toISOString(),
   };
+}
+
+export async function getProjectFavorite(
+  ctx: DbCtx,
+  projectId: Id<"projects">,
+  userId: Id<"users">,
+) {
+  return await ctx.db
+    .query("projectFavorites")
+    .withIndex("by_project_user", (q) =>
+      q.eq("projectId", projectId).eq("userId", userId),
+    )
+    .unique();
+}
+
+export async function listProjectFavorites(
+  ctx: DbCtx,
+  workspaceId: Id<"workspaces">,
+  userId: Id<"users">,
+) {
+  return await ctx.db
+    .query("projectFavorites")
+    .withIndex("by_workspace_user", (q) =>
+      q.eq("workspaceId", workspaceId).eq("userId", userId),
+    )
+    .collect();
 }
 
 export function projectUpdateDto(update: Doc<"projectUpdates">) {

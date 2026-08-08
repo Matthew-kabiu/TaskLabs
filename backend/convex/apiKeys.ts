@@ -11,7 +11,7 @@ import {
   verifyApiKeyToken,
 } from "./apiKeys/service";
 import type { ApiKeyActor } from "./apiKeys/model";
-import type { ApiKeyScope } from "./apiKeys/scopes";
+import { assertRequiredScopes, type ApiKeyScope } from "./apiKeys/scopes";
 import {
   createTaskForActor,
   getTaskForActor,
@@ -43,6 +43,7 @@ import {
   listProjectsForActor,
   removeProjectForActor,
   removeProjectUpdateForActor,
+  setProjectFavoriteForActor,
   updateProjectForActor,
 } from "./projects/service";
 import {
@@ -55,13 +56,25 @@ import {
   listForActor,
   markAllReadForActor,
   markReadForActor,
+  unreadCountForActor,
 } from "./notifications/service";
 import { searchWorkspaceForActor } from "./search";
-import { normalizeName, userDto } from "./lib/users";
+import { normalizeLeadMinutes, normalizeName, userDto } from "./lib/users";
 import { getTelegramUser, telegramSummaryDto } from "./telegram/model";
 import { telegramApiOrigin } from "./telegram/env";
 
 const internalApi = internal as any;
+
+const TASK_STATUSES = [
+  "BACKLOG",
+  "TODO",
+  "IN_PROGRESS",
+  "IN_REVIEW",
+  "DONE",
+  "CANCELLED",
+  "ARCHIVED",
+] as const;
+const TASK_PRIORITIES = ["LOW", "MEDIUM", "HIGH", "URGENT"] as const;
 
 const MCP_TOOL_SCOPES: Record<string, ApiKeyScope[]> = {
   "tasks.list": ["tasks:read"],
@@ -76,6 +89,7 @@ const MCP_TOOL_SCOPES: Record<string, ApiKeyScope[]> = {
   "projects.create": ["projects:write"],
   "projects.update": ["projects:write"],
   "projects.delete": ["projects:write"],
+  "projects.favorite": ["projects:write"],
   "projects.updates.list": ["projects:read"],
   "projects.updates.create": ["projects:write"],
   "projects.updates.delete": ["projects:write"],
@@ -95,6 +109,7 @@ const MCP_TOOL_SCOPES: Record<string, ApiKeyScope[]> = {
   "workspaces.members.update": ["members:admin"],
   "workspaces.members.remove": ["members:admin"],
   "notifications.list": ["notifications:read"],
+  "notifications.unread": ["notifications:read"],
   "notifications.markRead": ["notifications:write"],
   "notifications.markAllRead": ["notifications:write"],
   "search.query": ["search:read"],
@@ -143,6 +158,53 @@ function optionalBoolean(input: Record<string, unknown>, key: string) {
   return typeof value === "boolean" ? value : undefined;
 }
 
+function optionalEnum<const T extends readonly string[]>(
+  input: Record<string, unknown>,
+  key: string,
+  values: T,
+  suffix = "",
+): T[number] | undefined {
+  const value = input[key];
+  if (value === undefined) return undefined;
+  if (typeof value === "string" && (values as readonly string[]).includes(value)) {
+    return value as T[number];
+  }
+  throw new Error(`${key} must be one of ${values.join(", ")}${suffix}`);
+}
+
+function optionalTaskStatus(input: Record<string, unknown>) {
+  return optionalEnum(
+    input,
+    "status",
+    TASK_STATUSES,
+    "; represent blocked work as BACKLOG plus a blocked label",
+  );
+}
+
+function optionalTaskPriority(input: Record<string, unknown>) {
+  return optionalEnum(input, "priority", TASK_PRIORITIES);
+}
+
+function idempotencyKeyArg(input: Record<string, unknown>) {
+  const key = stringArg(input, "idempotencyKey");
+  if (key.length > 128) {
+    throw new Error("idempotencyKey must be at most 128 characters");
+  }
+  return key;
+}
+
+function canonicalJson(value: unknown): string {
+  if (value === null || typeof value !== "object") {
+    return JSON.stringify(value) ?? "undefined";
+  }
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
+  const object = value as Record<string, unknown>;
+  return `{${Object.keys(object)
+    .sort()
+    .map((key) => `${JSON.stringify(key)}:${canonicalJson(object[key])}`)
+    .join(",")}}`;
+}
+
 function optionalStringOrNull(input: Record<string, unknown>, key: string) {
   const value = input[key];
   if (value === null) return null;
@@ -156,24 +218,53 @@ function optionalTime(input: Record<string, unknown>, key: string) {
   return undefined;
 }
 
+function timeArg(input: Record<string, unknown>, key: string) {
+  const value = input[key];
+  if (
+    (typeof value === "string" && value.trim().length > 0) ||
+    (typeof value === "number" && Number.isFinite(value))
+  ) {
+    return value;
+  }
+  throw new Error(`${key} must be a timestamp string or number`);
+}
+
+function booleanArg(input: Record<string, unknown>, key: string) {
+  const value = input[key];
+  if (typeof value !== "boolean") throw new Error(`${key} must be a boolean`);
+  return value;
+}
+
 function optionalIds(input: Record<string, unknown>, key: string) {
   const value = input[key];
   if (!Array.isArray(value)) return undefined;
-  return value.filter((item): item is string => typeof item === "string");
+  if (!value.every((item): item is string => typeof item === "string")) {
+    throw new Error(`${key} must contain only IDs`);
+  }
+  return value;
+}
+
+function optionalNumbers(input: Record<string, unknown>, key: string) {
+  const value = input[key];
+  if (!Array.isArray(value)) return undefined;
+  if (!value.every((item): item is number => typeof item === "number")) {
+    throw new Error(`${key} must contain only numbers`);
+  }
+  return value;
 }
 
 function optionalResources(input: Record<string, unknown>, key: string) {
   const value = input[key];
   if (!Array.isArray(value)) return undefined;
-  return value.flatMap((item) => {
+  return value.map((item) => {
     const row = record(item);
     const label = optionalString(row, "label");
     const type = optionalString(row, "type");
     const url = optionalString(row, "url");
     if (label === undefined || type === undefined || url === undefined) {
-      return [];
+      throw new Error(`${key} entries require label, type, and url`);
     }
-    return [{ label, type, url }];
+    return { label, type, url };
   });
 }
 
@@ -263,19 +354,16 @@ export const mcpDispatchMutation = internalMutation({
     input: v.optional(v.any()),
   },
   handler: async (ctx, args) => {
-    const actor = await verifyApiKeyToken(
-      ctx,
-      args.token,
-      requiredScopesForTool(args.toolName),
-    );
+    const actor = await verifyApiKeyToken(ctx, args.token);
+    assertRequiredScopes(actor.scopes, requiredScopesForTool(args.toolName));
     const input = record(args.input);
     optionalWorkspaceCheck(actor, input);
 
     switch (args.toolName) {
       case "tasks.list":
         return await listTasksForActor(ctx, actor.workspaceId, actor.userId, {
-          status: optionalString(input, "status") as any,
-          priority: optionalString(input, "priority") as any,
+          status: optionalTaskStatus(input),
+          priority: optionalTaskPriority(input),
           q: optionalString(input, "q"),
           sort: optionalString(input, "sort") as any,
           dueFrom: optionalTime(input, "dueFrom") ?? undefined,
@@ -293,12 +381,13 @@ export const mcpDispatchMutation = internalMutation({
           stringArg(input, "taskId") as Id<"tasks">,
           true,
         );
-      case "tasks.create":
-        return await createTaskForActor(ctx, actor.workspaceId, actor.userId, {
+      case "tasks.create": {
+        const idempotencyKey = idempotencyKeyArg(input);
+        const createInput = {
           title: stringArg(input, "title"),
           description: optionalString(input, "description"),
-          status: optionalString(input, "status") as any,
-          priority: optionalString(input, "priority") as any,
+          status: optionalTaskStatus(input),
+          priority: optionalTaskPriority(input),
           dueDate: optionalTime(input, "dueDate") ?? undefined,
           isPrivate: optionalBoolean(input, "isPrivate"),
           position: optionalNumber(input, "position"),
@@ -311,7 +400,50 @@ export const mcpDispatchMutation = internalMutation({
           projectId: optionalString(input, "projectId") as
             | Id<"projects">
             | undefined,
-        }, true);
+        };
+        const inputFingerprint = canonicalJson(createInput);
+        const existing = await ctx.db
+          .query("mcpIdempotency")
+          .withIndex("by_api_key_operation_key", (q) =>
+            q
+              .eq("apiKeyId", actor.apiKeyId)
+              .eq("operation", args.toolName)
+              .eq("key", idempotencyKey),
+          )
+          .unique();
+        if (existing !== null) {
+          if (existing.inputFingerprint !== inputFingerprint) {
+            throw new Error(
+              "idempotencyKey was already used with different task input",
+            );
+          }
+          return await getTaskForActor(
+            ctx,
+            actor.workspaceId,
+            actor.userId,
+            existing.taskId,
+            true,
+          );
+        }
+
+        const task = await createTaskForActor(
+          ctx,
+          actor.workspaceId,
+          actor.userId,
+          createInput,
+          true,
+        );
+        await ctx.db.insert("mcpIdempotency", {
+          apiKeyId: actor.apiKeyId,
+          workspaceId: actor.workspaceId,
+          operation: args.toolName,
+          key: idempotencyKey,
+          inputFingerprint,
+          taskId: task.id,
+          createdAt: Date.now(),
+        });
+        return task;
+      }
       case "tasks.update":
         return await updateTaskForActor(
           ctx,
@@ -321,8 +453,8 @@ export const mcpDispatchMutation = internalMutation({
           {
             title: optionalString(input, "title"),
             description: optionalStringOrNull(input, "description"),
-            status: optionalString(input, "status") as any,
-            priority: optionalString(input, "priority") as any,
+            status: optionalTaskStatus(input),
+            priority: optionalTaskPriority(input),
             dueDate: optionalTime(input, "dueDate"),
             completedAt: optionalTime(input, "completedAt"),
             isPrivate: optionalBoolean(input, "isPrivate"),
@@ -351,11 +483,14 @@ export const mcpDispatchMutation = internalMutation({
       case "tasks.deleteMany": {
         const taskIds = input.taskIds;
         if (!Array.isArray(taskIds)) throw new Error("taskIds is required");
+        if (!taskIds.every((item): item is string => typeof item === "string")) {
+          throw new Error("taskIds must contain only IDs");
+        }
         return await removeTasksForActor(
           ctx,
           actor.workspaceId,
           actor.userId,
-          taskIds.filter((item): item is string => typeof item === "string") as Id<"tasks">[],
+          taskIds as Id<"tasks">[],
           true,
         );
       }
@@ -368,9 +503,12 @@ export const mcpDispatchMutation = internalMutation({
           actor.userId,
           items.map((item) => {
             const row = record(item);
+            if (typeof row.position !== "number" || !Number.isFinite(row.position)) {
+              throw new Error("position must be a finite number");
+            }
             return {
               id: stringArg(row, "id") as Id<"tasks">,
-              position: Number(row.position),
+              position: row.position,
             };
           }),
 true,
@@ -396,7 +534,8 @@ true,
           description: optionalString(input, "description"),
           status: optionalString(input, "status") as any,
           priority: optionalString(input, "priority") as any,
-          memberIds: optionalIds(input, "memberIds") as Id<"users">[] | undefined,
+           memberIds: optionalIds(input, "memberIds") as Id<"users">[] | undefined,
+           leadId: optionalString(input, "leadId") as Id<"users"> | undefined,
           startDate: optionalTime(input, "startDate") ?? undefined,
           endDate: optionalTime(input, "endDate") ?? undefined,
           resources: optionalResources(input, "resources") as any,
@@ -412,9 +551,10 @@ true,
             description: optionalStringOrNull(input, "description"),
             status: optionalString(input, "status") as any,
             priority: optionalString(input, "priority") as any,
-            memberIds: optionalIds(input, "memberIds") as Id<"users">[] | undefined,
-            startDate: optionalStringOrNull(input, "startDate"),
-            endDate: optionalStringOrNull(input, "endDate"),
+             memberIds: optionalIds(input, "memberIds") as Id<"users">[] | undefined,
+             leadId: optionalString(input, "leadId") as Id<"users"> | undefined,
+            startDate: optionalTime(input, "startDate"),
+            endDate: optionalTime(input, "endDate"),
             resources: optionalResources(input, "resources") as any,
           },
           true,
@@ -425,6 +565,15 @@ true,
           actor.workspaceId,
           actor.userId,
           stringArg(input, "projectId") as Id<"projects">,
+          true,
+        );
+      case "projects.favorite":
+        return await setProjectFavoriteForActor(
+          ctx,
+          actor.workspaceId,
+          actor.userId,
+          stringArg(input, "projectId") as Id<"projects">,
+          booleanArg(input, "isFavorite"),
           true,
         );
       case "projects.updates.list":
@@ -458,7 +607,7 @@ true,
           ctx,
           actor.workspaceId,
           actor.userId,
-          { from: stringArg(input, "from"), to: stringArg(input, "to") },
+          { from: timeArg(input, "from"), to: timeArg(input, "to") },
           true,
         );
       case "events.get":
@@ -473,8 +622,8 @@ true,
         return await createEventForActor(ctx, actor.workspaceId, actor.userId, {
           title: stringArg(input, "title"),
           description: optionalStringOrNull(input, "description"),
-          startAt: stringArg(input, "startAt"),
-          endAt: stringArg(input, "endAt"),
+          startAt: timeArg(input, "startAt"),
+          endAt: timeArg(input, "endAt"),
           allDay: optionalBoolean(input, "allDay"),
           color: optionalStringOrNull(input, "color"),
           location: optionalStringOrNull(input, "location"),
@@ -516,7 +665,7 @@ true,
           actor.workspaceId,
           actor.userId,
           stringArg(input, "eventId") as Id<"calendarEvents">,
-          Boolean(input.completed ?? true),
+          booleanArg(input, "completed"),
           true,
         );
       case "labels.list":
@@ -579,6 +728,8 @@ true,
           actor.userId,
           optionalNumber(input, "limit"),
         );
+      case "notifications.unread":
+        return await unreadCountForActor(ctx, actor.userId);
       case "notifications.markRead":
         return await markReadForActor(
           ctx,
@@ -599,14 +750,40 @@ true,
       case "profile.get":
         return await userDto(ctx, actor.userId);
       case "profile.update": {
-        const patch: { name?: string; themePreference?: "LIGHT" | "DARK" | "SYSTEM" } = {};
-        if (input.name !== undefined) patch.name = normalizeName(String(input.name));
+        const patch: {
+          name?: string;
+          themePreference?: "LIGHT" | "DARK" | "SYSTEM";
+          notifyLeadMinutesTask?: number[];
+          notifyLeadMinutesEvent?: number[];
+          notifyLeadCustomTask?: boolean;
+          notifyLeadCustomEvent?: boolean;
+        } = {};
+        if (input.name !== undefined) {
+          if (typeof input.name !== "string") throw new Error("name must be a string");
+          patch.name = normalizeName(input.name);
+        }
         if (
           input.themePreference === "LIGHT" ||
           input.themePreference === "DARK" ||
           input.themePreference === "SYSTEM"
         ) {
           patch.themePreference = input.themePreference;
+        } else if (input.themePreference !== undefined) {
+          throw new Error("themePreference must be LIGHT, DARK, or SYSTEM");
+        }
+        const taskLeads = normalizeLeadMinutes(
+          optionalNumbers(input, "notifyLeadMinutesTask"),
+        );
+        if (taskLeads !== undefined) patch.notifyLeadMinutesTask = taskLeads;
+        const eventLeads = normalizeLeadMinutes(
+          optionalNumbers(input, "notifyLeadMinutesEvent"),
+        );
+        if (eventLeads !== undefined) patch.notifyLeadMinutesEvent = eventLeads;
+        if (input.notifyLeadCustomTask !== undefined) {
+          patch.notifyLeadCustomTask = booleanArg(input, "notifyLeadCustomTask");
+        }
+        if (input.notifyLeadCustomEvent !== undefined) {
+          patch.notifyLeadCustomEvent = booleanArg(input, "notifyLeadCustomEvent");
         }
         await ctx.db.patch(actor.userId, patch);
         return await userDto(ctx, actor.userId);
@@ -632,8 +809,9 @@ export const mcpDispatch = action({
 
     const actor = await ctx.runMutation(internalApi.apiKeys.verifyBearerInternal, {
       token: args.token,
-      requiredScopes: requiredScopesForTool(args.toolName),
+      requiredScopes: [],
     });
+    assertRequiredScopes(actor.scopes, requiredScopesForTool(args.toolName));
     const config = await ctx.runQuery(internalApi.telegram.getSendConfig, {
       userId: actor.userId,
     });

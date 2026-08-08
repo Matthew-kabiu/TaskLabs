@@ -57,7 +57,8 @@ function corsHeaders(request: Request) {
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
     'Access-Control-Allow-Headers':
       'Authorization, Content-Type, Accept, MCP-Protocol-Version',
-    'Access-Control-Expose-Headers': 'WWW-Authenticate, MCP-Protocol-Version',
+    'Access-Control-Expose-Headers':
+      'WWW-Authenticate, MCP-Protocol-Version, Retry-After',
     'Access-Control-Max-Age': '600',
     vary: 'Origin',
   };
@@ -75,7 +76,7 @@ function methodNotAllowed(request: Request) {
   );
 }
 
-async function authenticate(request: Request) {
+function authenticateTransport(request: Request) {
   const url = new URL(request.url);
   const queryTokenError = rejectQueryTokens(url);
   if (queryTokenError !== null) {
@@ -114,21 +115,6 @@ async function authenticate(request: Request) {
     };
   }
 
-  try {
-    await client().mutation(BACKEND_ROUTES.apiKeys.verifyBearer, {
-      token,
-      requiredScopes: [],
-    });
-  } catch {
-    const challenge = bearerUnauthorized();
-    return {
-      response: json(challenge.body, challenge.status, {
-        ...challenge.headers,
-        ...corsHeaders(request),
-      }),
-    };
-  }
-
   return { token };
 }
 
@@ -151,23 +137,77 @@ function errorPayload(error: unknown) {
   };
 }
 
-async function handleRpc(request: JsonRpcRequest, token: string) {
+class McpUnauthorizedError extends Error {}
+
+class McpRateLimitedError extends Error {
+  constructor(readonly retryAfterMs: number) {
+    super('Rate limit exceeded');
+  }
+}
+
+function throwStructuredBackendError(error: unknown): never {
+  const candidate = error as { data?: unknown };
+  const data =
+    candidate?.data !== null && typeof candidate?.data === 'object'
+      ? (candidate.data as Record<string, unknown>)
+      : null;
+  if (data?.kind === 'ApiKeyUnauthorized') {
+    throw new McpUnauthorizedError();
+  }
+  if (
+    data?.kind === 'RateLimited' &&
+    typeof data.retryAfter === 'number' &&
+    Number.isFinite(data.retryAfter)
+  ) {
+    throw new McpRateLimitedError(Math.max(1, data.retryAfter));
+  }
+  throw error;
+}
+
+type RpcOutcome = {
+  payload: ReturnType<typeof jsonRpcResult> | ReturnType<typeof jsonRpcError> | null;
+  retryAfterMs?: number;
+};
+
+async function handleRpc(
+  request: JsonRpcRequest,
+  token: string,
+  verifyControlRequest: () => Promise<void>,
+): Promise<RpcOutcome> {
   const id = request.id ?? null;
 
+  if (request.method !== 'tools/call') {
+    try {
+      await verifyControlRequest();
+    } catch (error) {
+      if (error instanceof McpRateLimitedError) {
+        return {
+          payload: jsonRpcError(id, -32029, 'Rate limit exceeded', {
+            retryAfterMs: error.retryAfterMs,
+          }),
+          retryAfterMs: error.retryAfterMs,
+        };
+      }
+      throw error;
+    }
+  }
+
   if (request.method === 'initialize') {
-    return jsonRpcResult(id, {
-      protocolVersion: MCP_PROTOCOL_VERSION,
-      capabilities: { tools: { listChanged: false } },
-      serverInfo: { name: 'tasklabs', version: '0.1.0' },
-    });
+    return {
+      payload: jsonRpcResult(id, {
+        protocolVersion: MCP_PROTOCOL_VERSION,
+        capabilities: { tools: { listChanged: false } },
+        serverInfo: { name: 'tasklabs', version: '0.1.0' },
+      }),
+    };
   }
 
   if (request.method === 'notifications/initialized') {
-    return null;
+    return { payload: null };
   }
 
   if (request.method === 'tools/list') {
-    return jsonRpcResult(id, { tools: MCP_TOOLS });
+    return { payload: jsonRpcResult(id, { tools: MCP_TOOLS }) };
   }
 
   if (request.method === 'tools/call') {
@@ -176,7 +216,20 @@ async function handleRpc(request: JsonRpcRequest, token: string) {
         ? (request.params as { name?: unknown; arguments?: unknown })
         : {};
     if (typeof params.name !== 'string') {
-      return jsonRpcError(id, -32602, 'Tool name is required');
+      try {
+        await verifyControlRequest();
+      } catch (error) {
+        if (error instanceof McpRateLimitedError) {
+          return {
+            payload: jsonRpcError(id, -32029, 'Rate limit exceeded', {
+              retryAfterMs: error.retryAfterMs,
+            }),
+            retryAfterMs: error.retryAfterMs,
+          };
+        }
+        throw error;
+      }
+      return { payload: jsonRpcError(id, -32602, 'Tool name is required') };
     }
 
     try {
@@ -185,17 +238,30 @@ async function handleRpc(request: JsonRpcRequest, token: string) {
         toolName: params.name,
         input: params.arguments ?? {},
       });
-      return jsonRpcResult(id, responsePayload(result));
+      return { payload: jsonRpcResult(id, responsePayload(result)) };
     } catch (error) {
-      return jsonRpcResult(id, errorPayload(error));
+      try {
+        throwStructuredBackendError(error);
+      } catch (structuredError) {
+        if (structuredError instanceof McpRateLimitedError) {
+          return {
+            payload: jsonRpcError(id, -32029, 'Rate limit exceeded', {
+              retryAfterMs: structuredError.retryAfterMs,
+            }),
+            retryAfterMs: structuredError.retryAfterMs,
+          };
+        }
+        if (structuredError instanceof McpUnauthorizedError) throw structuredError;
+        return { payload: jsonRpcResult(id, errorPayload(structuredError)) };
+      }
     }
   }
 
-  return jsonRpcError(id, -32601, 'Method not found');
+  return { payload: jsonRpcError(id, -32601, 'Method not found') };
 }
 
 export async function POST(request: Request) {
-  const auth = await authenticate(request);
+  const auth = authenticateTransport(request);
   if ('response' in auth) return auth.response;
 
   let body: unknown;
@@ -211,29 +277,67 @@ export async function POST(request: Request) {
 
   const requests = Array.isArray(body) ? body : [body];
   const results = [];
+  let retryAfterMs = 0;
+  let controlVerification: Promise<void> | undefined;
+  const verifyControlRequest = () => {
+    controlVerification ??= client()
+      .mutation(BACKEND_ROUTES.apiKeys.verifyBearer, {
+        token: auth.token,
+        requiredScopes: [],
+      })
+      .then(() => undefined)
+      .catch((error) => throwStructuredBackendError(error));
+    return controlVerification;
+  };
   // Batch entries are dispatched sequentially on purpose. JSON-RPC 2.0 permits
   // concurrent processing, but a batch here may carry dependent mutations
   // (create a task, then update it), and every dispatch passes through the
   // fail-closed Convex rate limiter — running them in parallel would make both
   // ordering and rate-limit outcomes nondeterministic. Do not convert this to
   // Promise.all.
-  for (const item of requests) {
-    if (!isJsonRpcRequest(item)) {
-      results.push(jsonRpcError(null, -32600, 'Invalid Request'));
-      continue;
+  try {
+    for (const item of requests) {
+      if (!isJsonRpcRequest(item)) {
+        await verifyControlRequest();
+        results.push(jsonRpcError(null, -32600, 'Invalid Request'));
+        continue;
+      }
+      const result = await handleRpc(item, auth.token, verifyControlRequest);
+      retryAfterMs = Math.max(retryAfterMs, result.retryAfterMs ?? 0);
+      if (result.payload !== null && 'id' in item) results.push(result.payload);
     }
-    const result = await handleRpc(item, auth.token);
-    if (result !== null && 'id' in item) results.push(result);
+  } catch (error) {
+    if (error instanceof McpUnauthorizedError) {
+      const challenge = bearerUnauthorized();
+      return json(challenge.body, challenge.status, {
+        ...challenge.headers,
+        ...corsHeaders(request),
+      });
+    }
+    throw error;
   }
 
   if (results.length === 0) {
+    if (retryAfterMs > 0) {
+      return json(jsonRpcError(null, -32029, 'Rate limit exceeded', {
+        retryAfterMs,
+      }), 429, {
+        'Retry-After': String(Math.max(1, Math.ceil(retryAfterMs / 1000))),
+        ...corsHeaders(request),
+      });
+    }
     return new Response(null, { status: 202, headers: corsHeaders(request) });
   }
 
   return json(
     Array.isArray(body) ? results : results[0],
-    200,
-    corsHeaders(request),
+    retryAfterMs > 0 ? 429 : 200,
+    {
+      ...(retryAfterMs > 0
+        ? { 'Retry-After': String(Math.max(1, Math.ceil(retryAfterMs / 1000))) }
+        : {}),
+      ...corsHeaders(request),
+    },
   );
 }
 

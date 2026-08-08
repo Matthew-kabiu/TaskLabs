@@ -73,6 +73,8 @@ describe("projects", () => {
     expect(project).toMatchObject({
       workspaceId: workspace.id,
       creatorId: ownerId,
+      leadId: ownerId,
+      isFavorite: false,
       title: "Website Revamp",
       description: "Redesign the marketing site",
       status: "IN_PROGRESS",
@@ -144,6 +146,56 @@ describe("projects", () => {
     ).rejects.toThrow("Project member must be a workspace member");
   });
 
+  test("assigns leads and keeps favorites private to each workspace member", async () => {
+    const t = testBackend();
+    const ownerId = await seedUser(t, {
+      email: "lead-owner@example.com",
+      name: "Lead Owner",
+    });
+    const memberId = await seedUser(t, {
+      email: "lead-member@example.com",
+      name: "Lead Member",
+    });
+    const asOwner = t.withIdentity({ subject: ownerId, email: "lead-owner@example.com" });
+    const asMember = t.withIdentity({ subject: memberId, email: "lead-member@example.com" });
+    const workspace = requireValue(
+      await asOwner.mutation(apiAny.workspaces.ensurePersonal, {
+        name: "Lead Workspace",
+      }),
+      "workspace",
+    );
+    await t.run(async (ctx) => {
+      await ctx.db.insert("workspaceMembers", {
+        workspaceId: workspace.id,
+        userId: memberId,
+        role: "MEMBER",
+        joinedAt: Date.now(),
+      });
+    });
+
+    const project = await asOwner.mutation(apiAny.projects.create, {
+      workspaceId: workspace.id,
+      title: "Led project",
+      leadId: memberId,
+    });
+    expect(project.leadId).toBe(memberId);
+    expect(project.memberIds).toContain(memberId);
+
+    await asOwner.mutation(apiAny.projects.setFavorite, {
+      workspaceId: workspace.id,
+      projectId: project.id,
+      isFavorite: true,
+    });
+    const ownerList = await asOwner.query(apiAny.projects.list, {
+      workspaceId: workspace.id,
+    });
+    const memberList = await asMember.query(apiAny.projects.list, {
+      workspaceId: workspace.id,
+    });
+    expect(ownerList[0].isFavorite).toBe(true);
+    expect(memberList[0].isFavorite).toBe(false);
+  });
+
   test("rejects invalid resource urls", async () => {
     const t = testBackend();
     const ownerId = await seedUser(t, {
@@ -170,6 +222,30 @@ describe("projects", () => {
     ).rejects.toThrow("Resource url must include a protocol");
   });
 
+  test("rejects project end dates before start dates", async () => {
+    const t = testBackend();
+    const ownerId = await seedUser(t, {
+      email: "dates@example.com",
+      name: "Date Owner",
+    });
+    const asOwner = t.withIdentity({ subject: ownerId, email: "dates@example.com" });
+    const workspace = requireValue(
+      await asOwner.mutation(apiAny.workspaces.ensurePersonal, {
+        name: "Date Workspace",
+      }),
+      "workspace",
+    );
+
+    await expect(
+      asOwner.mutation(apiAny.projects.create, {
+        workspaceId: workspace.id,
+        title: "Invalid dates",
+        startDate: "2026-09-10T00:00:00.000Z",
+        endDate: "2026-09-01T00:00:00.000Z",
+      }),
+    ).rejects.toThrow("Project end date cannot be before its start date");
+  });
+
   test("deleting a project cascades to its tasks", async () => {
     const t = testBackend();
     const ownerId = await seedUser(t, {
@@ -189,6 +265,11 @@ describe("projects", () => {
     const project = await asOwner.mutation(apiAny.projects.create, {
       workspaceId: workspace.id,
       title: "Cascade project",
+    });
+    await asOwner.mutation(apiAny.projects.setFavorite, {
+      workspaceId: workspace.id,
+      projectId: project.id,
+      isFavorite: true,
     });
 
     const kept = await asOwner.mutation(apiAny.tasks.create, {
@@ -213,13 +294,17 @@ describe("projects", () => {
     expect(remaining.map((row: { title: string }) => row.title)).toEqual([
       kept.title,
     ]);
+    const favorites = await t.run(async (ctx) =>
+      await ctx.db.query("projectFavorites").collect(),
+    );
+    expect(favorites).toEqual([]);
 
-    await expect(
-      asOwner.query(apiAny.projects.get, {
+    expect(
+      await asOwner.query(apiAny.projects.get, {
         workspaceId: workspace.id,
         projectId: project.id,
       }),
-    ).rejects.toThrow("Project not found");
+    ).toBeNull();
   });
 
   test("project updates behave like a notice board", async () => {
@@ -315,6 +400,8 @@ describe("projects", () => {
     expect(project).toMatchObject({
       workspaceId: workspace.id,
       creatorId: userId,
+      leadId: userId,
+      isFavorite: false,
       title: "MCP-driven project",
       status: "PLANNING",
       resources: [
@@ -330,6 +417,26 @@ describe("projects", () => {
     expect(list.map((row: { title: string }) => row.title)).toEqual([
       "MCP-driven project",
     ]);
+
+    await t.action(apiAny.apiKeys.mcpDispatch, {
+      token: key.token,
+      toolName: "projects.favorite",
+      input: { projectId: project.id, isFavorite: true },
+    });
+    const favoriteList = await t.action(apiAny.apiKeys.mcpDispatch, {
+      token: key.token,
+      toolName: "projects.list",
+      input: {},
+    });
+    expect(favoriteList[0].isFavorite).toBe(true);
+
+    const startDate = Date.UTC(2026, 7, 9);
+    const datedProject = await t.action(apiAny.apiKeys.mcpDispatch, {
+      token: key.token,
+      toolName: "projects.update",
+      input: { projectId: project.id, startDate },
+    });
+    expect(datedProject.startDate).toBe(new Date(startDate).toISOString());
 
     const update = await t.action(apiAny.apiKeys.mcpDispatch, {
       token: key.token,

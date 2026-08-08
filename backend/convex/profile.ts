@@ -10,25 +10,16 @@ import { action, internalQuery, mutation, query } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { requireUserId } from "./lib/auth";
 import { themePreference } from "./lib/validators";
-import { normalizeEmail, normalizeName, userDto } from "./lib/users";
+import {
+  normalizeEmail,
+  normalizeLeadMinutes,
+  normalizeName,
+  userDto,
+} from "./lib/users";
 import { encryptTelegramToken } from "./telegram/crypto";
 
 const TELEGRAM_TOKEN_RE = /^\d{5,15}:[A-Za-z0-9_-]{30,200}$/;
 const internalApi = internal as any;
-
-function normalizeLeadMinutes(values: number[] | undefined) {
-  if (values === undefined) return undefined;
-  const normalized = [...new Set(values)];
-  if (normalized.length > 8) {
-    throw new Error("At most 8 lead times are allowed");
-  }
-  for (const value of normalized) {
-    if (!Number.isInteger(value) || value < 0 || value > 60 * 24 * 30) {
-      throw new Error("Lead times must be minute integers from 0 to 43200");
-    }
-  }
-  return normalized.sort((a, b) => a - b);
-}
 
 function makeWebhookSecret() {
   const bytes = new Uint8Array(24);

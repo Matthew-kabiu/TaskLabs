@@ -122,7 +122,7 @@ const labels = labelRows
           .includes(q),
       )
       .slice(0, limit)
-      .map(projectDto);
+      .map((project) => projectDto(project));
 
     return { tasks, events, labels, projects };
   }

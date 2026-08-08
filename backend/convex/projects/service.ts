@@ -4,6 +4,8 @@ import { requireMembership, requireMembershipForUser } from "../lib/auth";
 import { deleteTaskRelations } from "../tasks/model";
 import {
   getProjectInWorkspace,
+  getProjectFavorite,
+  listProjectFavorites,
   listProjectRecords,
   listProjectUpdateRecords,
   normalizeProjectDescription,
@@ -13,6 +15,7 @@ import {
   parseOptionalProjectTime,
   projectDto,
   projectUpdateDto,
+  ProjectNotFoundError,
   uniqueIds,
   type ProjectPriority,
   type ProjectResource,
@@ -31,6 +34,7 @@ export type CreateProjectInput = {
   status?: ProjectStatus;
   priority?: ProjectPriority;
   memberIds?: Id<"users">[];
+  leadId?: Id<"users">;
   startDate?: number | string | null;
   endDate?: number | string | null;
   resources?: ProjectResource[];
@@ -42,6 +46,7 @@ export type UpdateProjectInput = {
   status?: ProjectStatus;
   priority?: ProjectPriority;
   memberIds?: Id<"users">[];
+  leadId?: Id<"users">;
   startDate?: number | string | null;
   endDate?: number | string | null;
   resources?: ProjectResource[];
@@ -66,6 +71,32 @@ async function validateMemberIds(
     }
   }
   return ids;
+}
+
+async function validateLeadId(
+  ctx: MutationCtx,
+  workspaceId: Id<"workspaces">,
+  leadId: Id<"users">,
+) {
+  const membership = await ctx.db
+    .query("workspaceMembers")
+    .withIndex("by_workspace_user", (q) =>
+      q.eq("workspaceId", workspaceId).eq("userId", leadId),
+    )
+    .unique();
+  if (membership === null) {
+    throw new Error("Project lead must be a workspace member");
+  }
+  return leadId;
+}
+
+function validateProjectDateRange(
+  startDate: number | undefined,
+  endDate: number | undefined,
+) {
+  if (startDate !== undefined && endDate !== undefined && endDate < startDate) {
+    throw new Error("Project end date cannot be before its start date");
+  }
 }
 
 export async function listProjects(
@@ -101,9 +132,14 @@ export async function listProjectsForActor(
     }
     return true;
   });
+  const favoriteIds = new Set(
+    (await listProjectFavorites(ctx, workspaceId, userId)).map(
+      (favorite) => favorite.projectId,
+    ),
+  );
   return projects
     .sort((a, b) => b.updatedAt - a.updatedAt)
-    .map(projectDto);
+    .map((project) => projectDto(project, favoriteIds.has(project._id)));
 }
 
 export async function getProject(
@@ -112,7 +148,12 @@ export async function getProject(
   projectId: Id<"projects">,
 ) {
   const { userId } = await requireMembership(ctx, workspaceId);
-  return await getProjectForActor(ctx, workspaceId, userId, projectId, true);
+  try {
+    return await getProjectForActor(ctx, workspaceId, userId, projectId, true);
+  } catch (error) {
+    if (error instanceof ProjectNotFoundError) return null;
+    throw error;
+  }
 }
 
 export async function getProjectForActor(
@@ -125,7 +166,9 @@ export async function getProjectForActor(
   if (!membershipProven) {
     await requireMembershipForUser(ctx, workspaceId, userId);
   }
-  return projectDto(await getProjectInWorkspace(ctx, workspaceId, projectId));
+  const project = await getProjectInWorkspace(ctx, workspaceId, projectId);
+  const favorite = await getProjectFavorite(ctx, projectId, userId);
+  return projectDto(project, favorite !== null);
 }
 
 export async function createProject(
@@ -147,18 +190,26 @@ export async function createProjectForActor(
   if (!membershipProven) {
     await requireMembershipForUser(ctx, workspaceId, userId);
   }
-  const memberIds = await validateMemberIds(ctx, workspaceId, input.memberIds);
+  const leadId = await validateLeadId(ctx, workspaceId, input.leadId ?? userId);
+  const memberIds = await validateMemberIds(ctx, workspaceId, [
+    ...(input.memberIds ?? []),
+    leadId,
+  ]);
+  const startDate = parseOptionalProjectTime(input.startDate);
+  const endDate = parseOptionalProjectTime(input.endDate);
+  validateProjectDateRange(startDate, endDate);
   const now = Date.now();
   const projectId = await ctx.db.insert("projects", {
     workspaceId,
     creatorId: userId,
+    leadId,
     title: normalizeProjectTitle(input.title),
     description: normalizeProjectDescription(input.description),
     status: input.status ?? "PLANNING",
     priority: input.priority ?? "MEDIUM",
     memberIds: memberIds ?? [],
-    startDate: parseOptionalProjectTime(input.startDate),
-    endDate: parseOptionalProjectTime(input.endDate),
+    startDate,
+    endDate,
     resources: normalizeResources(input.resources) ?? [],
     createdAt: now,
     updatedAt: now,
@@ -192,7 +243,24 @@ export async function updateProjectForActor(
     await requireMembershipForUser(ctx, workspaceId, userId);
   }
   const existing = await getProjectInWorkspace(ctx, workspaceId, projectId);
-  const memberIds = await validateMemberIds(ctx, workspaceId, input.memberIds);
+  const leadId =
+    input.leadId === undefined
+      ? existing.leadId ?? existing.creatorId
+      : await validateLeadId(ctx, workspaceId, input.leadId);
+  const memberIds = await validateMemberIds(
+    ctx,
+    workspaceId,
+    input.memberIds === undefined ? undefined : [...input.memberIds, leadId],
+  );
+  const startDate =
+    input.startDate === undefined
+      ? existing.startDate
+      : parseOptionalProjectTime(input.startDate);
+  const endDate =
+    input.endDate === undefined
+      ? existing.endDate
+      : parseOptionalProjectTime(input.endDate);
+  validateProjectDateRange(startDate, endDate);
 
   const patch: Partial<typeof existing> = {
     updatedAt: Date.now(),
@@ -213,11 +281,17 @@ export async function updateProjectForActor(
   if (input.memberIds !== undefined) {
     patch.memberIds = memberIds ?? [];
   }
+  if (input.leadId !== undefined) {
+    patch.leadId = leadId;
+    if (!existing.memberIds.includes(leadId) && input.memberIds === undefined) {
+      patch.memberIds = [...existing.memberIds, leadId];
+    }
+  }
   if (input.startDate !== undefined) {
-    patch.startDate = parseOptionalProjectTime(input.startDate);
+    patch.startDate = startDate;
   }
   if (input.endDate !== undefined) {
-    patch.endDate = parseOptionalProjectTime(input.endDate);
+    patch.endDate = endDate;
   }
   if (input.resources !== undefined) {
     patch.resources = normalizeResources(input.resources) ?? [];
@@ -228,7 +302,8 @@ export async function updateProjectForActor(
   if (project === null) {
     throw new Error("Project not found after update");
   }
-  return projectDto(project);
+  const favorite = await getProjectFavorite(ctx, projectId, userId);
+  return projectDto(project, favorite !== null);
 }
 
 async function cascadeDeleteProject(
@@ -253,6 +328,56 @@ async function cascadeDeleteProject(
   for (const update of updates) {
     await ctx.db.delete(update._id);
   }
+  const favorites = await ctx.db
+    .query("projectFavorites")
+    .withIndex("by_project", (q) => q.eq("projectId", projectId))
+    .collect();
+  for (const favorite of favorites) {
+    await ctx.db.delete(favorite._id);
+  }
+}
+
+export async function setProjectFavorite(
+  ctx: MutationCtx,
+  workspaceId: Id<"workspaces">,
+  projectId: Id<"projects">,
+  isFavorite: boolean,
+) {
+  const { userId } = await requireMembership(ctx, workspaceId);
+  return await setProjectFavoriteForActor(
+    ctx,
+    workspaceId,
+    userId,
+    projectId,
+    isFavorite,
+    true,
+  );
+}
+
+export async function setProjectFavoriteForActor(
+  ctx: MutationCtx,
+  workspaceId: Id<"workspaces">,
+  userId: Id<"users">,
+  projectId: Id<"projects">,
+  isFavorite: boolean,
+  membershipProven = false,
+) {
+  if (!membershipProven) {
+    await requireMembershipForUser(ctx, workspaceId, userId);
+  }
+  await getProjectInWorkspace(ctx, workspaceId, projectId);
+  const existing = await getProjectFavorite(ctx, projectId, userId);
+  if (isFavorite && existing === null) {
+    await ctx.db.insert("projectFavorites", {
+      workspaceId,
+      projectId,
+      userId,
+      createdAt: Date.now(),
+    });
+  } else if (!isFavorite && existing !== null) {
+    await ctx.db.delete(existing._id);
+  }
+  return { isFavorite };
 }
 
 export async function removeProject(

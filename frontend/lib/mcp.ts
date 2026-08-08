@@ -13,6 +13,23 @@ const TOKEN_QUERY_PARAMS = ['access_token', 'token', 'api_key', 'key'];
 const textSchema = { type: 'string' } as const;
 const idSchema = { type: 'string' } as const;
 const optionalWorkspaceId = { workspaceId: idSchema };
+const TASK_STATUSES = [
+  'BACKLOG',
+  'TODO',
+  'IN_PROGRESS',
+  'IN_REVIEW',
+  'DONE',
+  'CANCELLED',
+  'ARCHIVED',
+] as const;
+const taskStatusSchema = {
+  enum: [...TASK_STATUSES],
+  description:
+    'Blocked work uses BACKLOG plus a blocked label; BLOCKED is not a task status.',
+} as const;
+const taskPrioritySchema = {
+  enum: ['LOW', 'MEDIUM', 'HIGH', 'URGENT'],
+} as const;
 
 function objectSchema(
   properties: Record<string, unknown>,
@@ -32,9 +49,10 @@ export const MCP_TOOLS = [
     description: 'List visible tasks in the API key workspace.',
     inputSchema: objectSchema({
       ...optionalWorkspaceId,
-      status: textSchema,
-      priority: textSchema,
+      status: taskStatusSchema,
+      priority: taskPrioritySchema,
       q: textSchema,
+      projectId: { oneOf: [idSchema, { type: 'null' }] },
       sort: textSchema,
       dueFrom: { oneOf: [textSchema, { type: 'number' }] },
       dueTo: { oneOf: [textSchema, { type: 'number' }] },
@@ -49,19 +67,28 @@ export const MCP_TOOLS = [
   },
   {
     name: 'tasks.create',
-    description: 'Create a task in the API key workspace.',
+    description:
+      'Create a task once in the API key workspace. Retrying with the same idempotencyKey and input returns the original task.',
     inputSchema: objectSchema(
       {
+        idempotencyKey: {
+          type: 'string',
+          minLength: 1,
+          maxLength: 128,
+          description: 'Caller-generated key reused only when retrying this create.',
+        },
         title: textSchema,
         description: textSchema,
-        status: textSchema,
-        priority: textSchema,
+        status: taskStatusSchema,
+        priority: taskPrioritySchema,
         dueDate: { oneOf: [textSchema, { type: 'number' }] },
         isPrivate: { type: 'boolean' },
+        position: { type: 'number' },
         assigneeIds: { type: 'array', items: idSchema },
         labelIds: { type: 'array', items: idSchema },
+        projectId: idSchema,
       },
-      ['title'],
+      ['idempotencyKey', 'title'],
     ),
   },
   {
@@ -72,8 +99,8 @@ export const MCP_TOOLS = [
         taskId: idSchema,
         title: textSchema,
         description: { oneOf: [textSchema, { type: 'null' }] },
-        status: textSchema,
-        priority: textSchema,
+        status: taskStatusSchema,
+        priority: taskPrioritySchema,
         dueDate: { oneOf: [textSchema, { type: 'number' }, { type: 'null' }] },
         completedAt: {
           oneOf: [textSchema, { type: 'number' }, { type: 'null' }],
@@ -82,6 +109,7 @@ export const MCP_TOOLS = [
         position: { type: 'number' },
         assigneeIds: { type: 'array', items: idSchema },
         labelIds: { type: 'array', items: idSchema },
+        projectId: { oneOf: [idSchema, { type: 'null' }] },
       },
       ['taskId'],
     ),
@@ -150,6 +178,7 @@ export const MCP_TOOLS = [
         status: textSchema,
         priority: textSchema,
         memberIds: { type: 'array', items: idSchema },
+        leadId: idSchema,
         startDate: { oneOf: [textSchema, { type: 'number' }] },
         endDate: { oneOf: [textSchema, { type: 'number' }] },
         resources: {
@@ -174,6 +203,7 @@ export const MCP_TOOLS = [
         status: textSchema,
         priority: textSchema,
         memberIds: { type: 'array', items: idSchema },
+        leadId: idSchema,
         startDate: {
           oneOf: [textSchema, { type: 'number' }, { type: 'null' }],
         },
@@ -196,17 +226,31 @@ export const MCP_TOOLS = [
     inputSchema: objectSchema({ projectId: idSchema }, ['projectId']),
   },
   {
+    name: 'projects.favorite',
+    description: 'Favorite or unfavorite a project for the API key owner.',
+    inputSchema: objectSchema(
+      { projectId: idSchema, isFavorite: { type: 'boolean' } },
+      ['projectId', 'isFavorite'],
+    ),
+  },
+  {
     name: 'projects.updates.list',
     description: 'List project updates (notice board) newest first.',
     inputSchema: objectSchema({ projectId: idSchema }, ['projectId']),
   },
   {
     name: 'projects.updates.create',
-    description: 'Post a project update to the project notice board.',
-    inputSchema: objectSchema({ projectId: idSchema, body: textSchema }, [
-      'projectId',
-      'body',
-    ]),
+    description: 'Post a Markdown project update to the project notice board.',
+    inputSchema: objectSchema(
+      {
+        projectId: idSchema,
+        body: {
+          type: 'string',
+          description: 'GitHub-flavored Markdown, up to 10000 characters.',
+        },
+      },
+      ['projectId', 'body'],
+    ),
   },
   {
     name: 'projects.updates.delete',
@@ -219,10 +263,13 @@ export const MCP_TOOLS = [
   {
     name: 'events.list',
     description: 'List visible calendar events in a date range.',
-    inputSchema: objectSchema({ from: textSchema, to: textSchema }, [
-      'from',
-      'to',
-    ]),
+    inputSchema: objectSchema(
+      {
+        from: { oneOf: [textSchema, { type: 'number' }] },
+        to: { oneOf: [textSchema, { type: 'number' }] },
+      },
+      ['from', 'to'],
+    ),
   },
   {
     name: 'events.get',
@@ -236,8 +283,8 @@ export const MCP_TOOLS = [
       {
         title: textSchema,
         description: { oneOf: [textSchema, { type: 'null' }] },
-        startAt: textSchema,
-        endAt: textSchema,
+        startAt: { oneOf: [textSchema, { type: 'number' }] },
+        endAt: { oneOf: [textSchema, { type: 'number' }] },
         allDay: { type: 'boolean' },
         color: { oneOf: [textSchema, { type: 'null' }] },
         location: { oneOf: [textSchema, { type: 'null' }] },
@@ -280,7 +327,7 @@ export const MCP_TOOLS = [
     description: 'Mark a calendar event complete or scheduled.',
     inputSchema: objectSchema(
       { eventId: idSchema, completed: { type: 'boolean' } },
-      ['eventId'],
+      ['eventId', 'completed'],
     ),
   },
   {
@@ -343,6 +390,11 @@ export const MCP_TOOLS = [
     inputSchema: objectSchema({ limit: { type: 'number' } }),
   },
   {
+    name: 'notifications.unread',
+    description: 'Get the unread notification count for the API key owner.',
+    inputSchema: objectSchema({}),
+  },
+  {
     name: 'notifications.markRead',
     description: 'Mark one notification read.',
     inputSchema: objectSchema({ notificationId: idSchema }, ['notificationId']),
@@ -354,7 +406,7 @@ export const MCP_TOOLS = [
   },
   {
     name: 'search.query',
-    description: 'Search visible tasks, events, and labels.',
+    description: 'Search visible tasks, projects, events, and labels.',
     inputSchema: objectSchema({ q: textSchema, limit: { type: 'number' } }, [
       'q',
     ]),
@@ -370,6 +422,10 @@ export const MCP_TOOLS = [
     inputSchema: objectSchema({
       name: textSchema,
       themePreference: { enum: ['LIGHT', 'DARK', 'SYSTEM'] },
+      notifyLeadMinutesTask: { type: 'array', items: { type: 'number' } },
+      notifyLeadMinutesEvent: { type: 'array', items: { type: 'number' } },
+      notifyLeadCustomTask: { type: 'boolean' },
+      notifyLeadCustomEvent: { type: 'boolean' },
     }),
   },
   {
@@ -490,8 +546,17 @@ export function jsonRpcResult(id: JsonRpcId, result: unknown) {
   return { jsonrpc: '2.0', id, result };
 }
 
-export function jsonRpcError(id: JsonRpcId, code: number, message: string) {
-  return { jsonrpc: '2.0', id, error: { code, message } };
+export function jsonRpcError(
+  id: JsonRpcId,
+  code: number,
+  message: string,
+  data?: unknown,
+) {
+  return {
+    jsonrpc: '2.0',
+    id,
+    error: data === undefined ? { code, message } : { code, message, data },
+  };
 }
 
 export function isJsonRpcRequest(value: unknown): value is JsonRpcRequest {

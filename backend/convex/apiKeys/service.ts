@@ -1,8 +1,8 @@
 import type { Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
+import { ConvexError } from "convex/values";
 import {
   requireMembership,
-  requireMembershipForUser,
   requireUserId,
   type WorkspaceRole,
   UnauthorizedError,
@@ -68,9 +68,22 @@ async function managementLimit(
 }
 
 async function verificationLimit(ctx: MutationCtx, key: string) {
-  await tasklabsRateLimiter.limit(ctx, "apiKeyVerify", {
+  const result = await tasklabsRateLimiter.limit(ctx, "apiKeyVerify", {
     key,
-    throws: true,
+  });
+  if (!result.ok) {
+    throw new ConvexError({
+      kind: "RateLimited",
+      name: "apiKeyVerify",
+      retryAfter: result.retryAfter,
+    });
+  }
+}
+
+function invalidApiKey(): never {
+  throw new ConvexError({
+    kind: "ApiKeyUnauthorized",
+    message: "Invalid API key",
   });
 }
 
@@ -131,6 +144,13 @@ export async function revokeApiKey(
   const row = await getApiKeyForOwner(ctx, { keyId, userId });
   await requireMembership(ctx, row.workspaceId);
   await managementLimit(ctx, userId, row.workspaceId);
+  const idempotencyRows = await ctx.db
+    .query("mcpIdempotency")
+    .withIndex("by_api_key", (q) => q.eq("apiKeyId", keyId))
+    .collect();
+  for (const idempotencyRow of idempotencyRows) {
+    await ctx.db.delete(idempotencyRow._id);
+  }
   await ctx.db.delete(keyId);
   return null;
 }
@@ -172,36 +192,40 @@ export async function verifyApiKeyToken(
   try {
     prefix = parseApiKeyToken(token).prefix;
   } catch {
-    throw new UnauthorizedError("Invalid API key");
+    invalidApiKey();
   }
 
   await verificationLimit(ctx, prefix);
 
   const row = await getApiKeyByPrefix(ctx, prefix);
   if (row === null) {
-    throw new UnauthorizedError("Invalid API key");
+    invalidApiKey();
   }
   const hash = await hashApiKeyToken(token);
   if (!constantTimeEqual(hash, row.secretHash)) {
-    throw new UnauthorizedError("Invalid API key");
+    invalidApiKey();
   }
   if (row.revokedAt !== undefined) {
-    throw new UnauthorizedError("Invalid API key");
+    invalidApiKey();
   }
   if (row.expiresAt !== undefined && row.expiresAt <= Date.now()) {
-    throw new UnauthorizedError("Invalid API key");
+    invalidApiKey();
   }
 
   assertRequiredScopes(row.scopes, requiredScopes);
   const user = await ctx.db.get(row.userId);
   if (user === null) {
-    throw new UnauthorizedError("Invalid API key");
+    invalidApiKey();
   }
-  const membership = await requireMembershipForUser(
-    ctx,
-    row.workspaceId,
-    row.userId,
-  );
+  const membership = await ctx.db
+    .query("workspaceMembers")
+    .withIndex("by_workspace_user", (q) =>
+      q.eq("workspaceId", row.workspaceId).eq("userId", row.userId),
+    )
+    .unique();
+  if (membership === null) {
+    invalidApiKey();
+  }
   await ctx.db.patch(row._id, {
     lastUsedAt: Date.now(),
     updatedAt: Date.now(),

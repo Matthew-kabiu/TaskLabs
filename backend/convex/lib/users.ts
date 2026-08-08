@@ -61,6 +61,20 @@ export async function userDto(ctx: DbCtx, userId: Id<"users">) {
   };
 }
 
+export function normalizeLeadMinutes(values: number[] | undefined) {
+  if (values === undefined) return undefined;
+  const normalized = [...new Set(values)];
+  if (normalized.length > 8) {
+    throw new Error("At most 8 lead times are allowed");
+  }
+  for (const value of normalized) {
+    if (!Number.isInteger(value) || value < 0 || value > 60 * 24 * 30) {
+      throw new Error("Lead times must be minute integers from 0 to 43200");
+    }
+  }
+  return normalized.sort((a, b) => a - b);
+}
+
 export async function claimCurrentUserRole(
   ctx: MutationCtx,
   input: {
