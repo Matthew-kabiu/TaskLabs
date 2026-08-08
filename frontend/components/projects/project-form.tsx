@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { format } from 'date-fns';
+import { format, startOfDay } from 'date-fns';
 import {
   Calendar as CalendarIcon,
   FolderKanban,
@@ -105,6 +105,7 @@ export function ProjectFormDialog({
   const [status, setStatus] = React.useState<ProjectStatus>('PLANNING');
   const [priority, setPriority] = React.useState<ProjectPriority>('MEDIUM');
   const [memberIds, setMemberIds] = React.useState<string[]>([]);
+  const [leadId, setLeadId] = React.useState<string | undefined>();
   const [startDate, setStartDate] = React.useState<Date | undefined>();
   const [endDate, setEndDate] = React.useState<Date | null>(null);
   const [resources, setResources] = React.useState<ProjectResourceInput[]>([
@@ -123,6 +124,7 @@ export function ProjectFormDialog({
       setStatus(project.status);
       setPriority(project.priority);
       setMemberIds(project.memberIds);
+      setLeadId(project.leadId);
       setStartDate(project.startDate ? new Date(project.startDate) : undefined);
       setEndDate(project.endDate ? new Date(project.endDate) : null);
       setResources(
@@ -136,6 +138,7 @@ export function ProjectFormDialog({
       setStatus('PLANNING');
       setPriority('MEDIUM');
       setMemberIds([]);
+      setLeadId(undefined);
       setStartDate(undefined);
       setEndDate(null);
       setResources([emptyResource()]);
@@ -167,6 +170,7 @@ export function ProjectFormDialog({
         status,
         priority,
         memberIds,
+        leadId,
         startDate,
         endDate,
         resources: filledResources,
@@ -178,6 +182,7 @@ export function ProjectFormDialog({
           status,
           priority,
           memberIds,
+          leadId,
           startDate: startDate ?? null,
           endDate,
           resources: filledResources,
@@ -316,6 +321,9 @@ export function ProjectFormDialog({
                   <Calendar
                     mode="single"
                     selected={startDate}
+                    disabled={(date) =>
+                      endDate !== null && startOfDay(date) > startOfDay(endDate)
+                    }
                     onSelect={(d) => setStartDate(d ?? undefined)}
                     initialFocus
                   />
@@ -345,6 +353,9 @@ export function ProjectFormDialog({
                   <Calendar
                     mode="single"
                     selected={endDate ?? undefined}
+                    disabled={(date) =>
+                      startDate !== undefined && startOfDay(date) < startOfDay(startDate)
+                    }
                     onSelect={(d) => setEndDate(d ?? null)}
                     initialFocus
                   />
@@ -379,7 +390,34 @@ export function ProjectFormDialog({
                 Invite members to this workspace before assigning them.
               </span>
             ) : (
-              <div className="grid gap-2 sm:grid-cols-2">
+              <div className="space-y-3">
+                <div className="flex flex-col gap-2">
+                  <Label>Project lead</Label>
+                  <Select
+                    value={leadId}
+                    onValueChange={(value) => {
+                      setLeadId(value);
+                      setMemberIds((current) =>
+                        current.includes(value) ? current : [...current, value],
+                      );
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Creator (default)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {members.map((member) => (
+                        <SelectItem key={member.id} value={member.id}>
+                          {member.name ?? member.email ?? member.id}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    New projects default to their creator when no lead is selected.
+                  </p>
+                </div>
+                <div className="grid gap-2 sm:grid-cols-2">
                 {members.map((member) => (
                   <label
                     key={member.id}
@@ -410,12 +448,14 @@ export function ProjectFormDialog({
                     </span>
                     <Checkbox
                       checked={memberIds.includes(member.id)}
+                      disabled={member.id === leadId}
                       onCheckedChange={(checked) =>
                         toggleMember(member.id, checked === true)
                       }
                     />
                   </label>
                 ))}
+                </div>
               </div>
             )}
           </section>

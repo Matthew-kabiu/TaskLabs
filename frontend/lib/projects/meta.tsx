@@ -10,14 +10,50 @@ import type { ProjectPriority, ProjectResourceType, ProjectStatus } from '@/hook
 
 export const PROJECT_STATUS_META: Record<
   ProjectStatus,
-  { label: string; dot: string; ring: string }
+  { label: string; dot: string; ring: string; surface: string; text: string }
 > = {
-  PLANNING: { label: 'Planning', dot: 'bg-sky-500', ring: 'ring-sky-500/30' },
-  IN_PROGRESS: { label: 'In Progress', dot: 'bg-amber-500', ring: 'ring-amber-500/30' },
-  ON_HOLD: { label: 'On Hold', dot: 'bg-zinc-400', ring: 'ring-zinc-400/30' },
-  COMPLETED: { label: 'Completed', dot: 'bg-emerald-500', ring: 'ring-emerald-500/30' },
-  CANCELLED: { label: 'Cancelled', dot: 'bg-rose-500', ring: 'ring-rose-500/30' },
-  ARCHIVED: { label: 'Archived', dot: 'bg-stone-500', ring: 'ring-stone-500/30' },
+  PLANNING: {
+    label: 'Planning',
+    dot: 'bg-sky-500',
+    ring: 'ring-sky-500/30',
+    surface: 'bg-sky-500/10',
+    text: 'text-sky-500',
+  },
+  IN_PROGRESS: {
+    label: 'In Progress',
+    dot: 'bg-amber-500',
+    ring: 'ring-amber-500/30',
+    surface: 'bg-amber-500/10',
+    text: 'text-amber-500',
+  },
+  ON_HOLD: {
+    label: 'On Hold',
+    dot: 'bg-zinc-400',
+    ring: 'ring-zinc-400/30',
+    surface: 'bg-zinc-400/10',
+    text: 'text-zinc-400',
+  },
+  COMPLETED: {
+    label: 'Completed',
+    dot: 'bg-emerald-500',
+    ring: 'ring-emerald-500/30',
+    surface: 'bg-emerald-500/10',
+    text: 'text-emerald-500',
+  },
+  CANCELLED: {
+    label: 'Cancelled',
+    dot: 'bg-rose-500',
+    ring: 'ring-rose-500/30',
+    surface: 'bg-rose-500/10',
+    text: 'text-rose-500',
+  },
+  ARCHIVED: {
+    label: 'Archived',
+    dot: 'bg-stone-500',
+    ring: 'ring-stone-500/30',
+    surface: 'bg-stone-500/10',
+    text: 'text-stone-500',
+  },
 };
 
 export const PROJECT_PRIORITY_META: Record<

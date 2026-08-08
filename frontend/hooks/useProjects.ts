@@ -44,6 +44,8 @@ export interface ProjectDTO {
   id: string;
   workspaceId: string;
   creatorId: string;
+  leadId: string;
+  isFavorite: boolean;
   title: string;
   description: string | null;
   status: ProjectStatus;
@@ -99,6 +101,7 @@ function createArgs(workspaceId: string, input: CreateProjectInput) {
     status: input.status,
     priority: input.priority,
     memberIds: input.memberIds?.map((id) => id as Id<'users'>),
+    leadId: input.leadId ? (input.leadId as Id<'users'>) : undefined,
     startDate: optionalDateArg(input.startDate),
     endDate: optionalDateArg(input.endDate),
     resources: input.resources,
@@ -118,6 +121,7 @@ function updateArgs(
     status: input.status,
     priority: input.priority,
     memberIds: input.memberIds?.map((id) => id as Id<'users'>),
+    leadId: input.leadId ? (input.leadId as Id<'users'>) : undefined,
     startDate: dateArg(input.startDate),
     endDate: dateArg(input.endDate),
     resources: input.resources,
@@ -251,6 +255,27 @@ export function useDeleteProject(workspaceIdArg?: string | null) {
         });
       },
       [removeProject, workspaceId],
+    ),
+  );
+}
+
+export function useSetProjectFavorite(workspaceIdArg?: string | null) {
+  const { activeWorkspaceId } = useWorkspaces();
+  const workspaceId = workspaceIdArg ?? activeWorkspaceId;
+  const setFavorite = useConvexMutation(BACKEND_ROUTES.projects.setFavorite);
+  return usePendingMutation<{ isFavorite: boolean }, { id: string; isFavorite: boolean }>(
+    useCallback(
+      async ({ id, isFavorite }) => {
+        if (!workspaceId) {
+          throw new Error('Select a workspace before favoriting projects.');
+        }
+        return (await setFavorite({
+          workspaceId: workspaceId as Id<'workspaces'>,
+          projectId: id as Id<'projects'>,
+          isFavorite,
+        })) as { isFavorite: boolean };
+      },
+      [setFavorite, workspaceId],
     ),
   );
 }
