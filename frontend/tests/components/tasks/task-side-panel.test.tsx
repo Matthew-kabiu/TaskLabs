@@ -71,6 +71,35 @@ describe('TaskSidePanel', () => {
     );
   });
 
+  it('defaults new tasks to the active project', async () => {
+    const onCreate = vi.fn().mockResolvedValue(undefined);
+    render(
+      <TaskSidePanel
+        open
+        task={null}
+        members={[]}
+        labels={[]}
+        projects={[{ id: 'p1', title: 'Website redesign' }]}
+        defaultProjectId="p1"
+        onClose={() => {}}
+        onCreate={onCreate}
+        onSave={async () => {}}
+        onDelete={async () => {}}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText(/title/i), {
+      target: { value: 'Scoped task' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /create task/i }));
+
+    await waitFor(() =>
+      expect(onCreate).toHaveBeenCalledWith(
+        expect.objectContaining({ projectId: 'p1' }),
+      ),
+    );
+  });
+
   it('keeps in-progress edits when the same task is updated live', () => {
     const props = {
       open: true as const,

@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { useMutation } from 'convex/react';
-import { Check, ChevronsUpDown, Plus } from 'lucide-react';
+import { Building2, Check, ChevronsUpDown, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Popover, PopoverTrigger, PopoverContent,
@@ -30,6 +30,7 @@ export type SwitcherWorkspace = {
 export function WorkspaceSwitcher(props: {
   workspaces: SwitcherWorkspace[];
   activeId: string;
+  compact?: boolean;
 }) {
   const setActiveWorkspaceId = useActiveWorkspaceStore((s) => s.setActiveWorkspaceId);
   const createWorkspace = useMutation(BACKEND_ROUTES.workspaces.create);
@@ -68,16 +69,29 @@ export function WorkspaceSwitcher(props: {
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <Button
-            variant="outline"
+            type="button"
+            variant={props.compact ? 'ghost' : 'outline'}
+            size={props.compact ? 'icon' : 'default'}
             role="combobox"
             aria-expanded={open}
-            className="w-full justify-between"
+            aria-label={props.compact ? `Active workspace: ${active?.name ?? 'None'}` : undefined}
+            className={props.compact ? 'h-8 w-8' : 'w-full justify-between'}
           >
-            <span className="truncate">{active?.name ?? 'Select workspace'}</span>
-            <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" />
+            {props.compact ? (
+              <Building2 className="h-4 w-4" />
+            ) : (
+              <>
+                <span className="truncate">{active?.name ?? 'Select workspace'}</span>
+                <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" />
+              </>
+            )}
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-[240px] p-0" align="start">
+        <PopoverContent
+          className="w-[240px] p-0"
+          align="start"
+          side={props.compact ? 'right' : 'bottom'}
+        >
           <Command>
             <CommandInput placeholder="Search workspaces…" />
             <CommandList>

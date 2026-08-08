@@ -84,4 +84,15 @@ describe('KanbanCard accessibility', () => {
     expect(screen.getByText('Bug')).toBeInTheDocument();
     expect(screen.getByTitle('Alice')).toHaveTextContent('AL');
   });
+
+  it('renders an explicit unassigned avatar when no assignee exists', () => {
+    render(
+      <DndContext>
+        <KanbanCard task={{ ...task, assignees: [] }} />
+      </DndContext>,
+    );
+
+    expect(screen.getByTitle('Unassigned')).toBeInTheDocument();
+    expect(screen.getByText('Unassigned')).toBeInTheDocument();
+  });
 });

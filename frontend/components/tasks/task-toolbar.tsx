@@ -1,6 +1,6 @@
 'use client';
 
-import { Plus, Search, Filter, SortAsc, FolderKanban } from 'lucide-react';
+import { Plus, Search, Filter, SortAsc } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -16,16 +16,20 @@ interface Props {
   filters: TaskListFilters;
   onFiltersChange: (next: TaskListFilters) => void;
   onNewTask: () => void;
-  projects: { id: string; title: string }[];
+  newTaskDisabled?: boolean;
   // Kanban groups by status and orders manually via drag-drop, so the
   // status filter and sort dropdown are inert there — hide them.
   showFilters?: boolean;
 }
 
 const ANY = '__any__';
-const NO_PROJECT = '__none__';
-
-export function TaskToolbar({ filters, onFiltersChange, onNewTask, projects, showFilters = true }: Props) {
+export function TaskToolbar({
+  filters,
+  onFiltersChange,
+  onNewTask,
+  newTaskDisabled = false,
+  showFilters = true,
+}: Props) {
   const update = (patch: Partial<TaskListFilters>) =>
     onFiltersChange({ ...filters, ...patch });
 
@@ -63,36 +67,6 @@ export function TaskToolbar({ filters, onFiltersChange, onNewTask, projects, sho
       )}
       {showFilters && (
       <Select
-        value={
-          filters.projectId === undefined
-            ? ANY
-            : filters.projectId === null
-              ? NO_PROJECT
-              : filters.projectId
-        }
-        onValueChange={(v) => {
-          if (v === ANY) update({ projectId: undefined });
-          else if (v === NO_PROJECT) update({ projectId: null });
-          else update({ projectId: v });
-        }}
-      >
-        <SelectTrigger className="w-[150px]">
-          <FolderKanban className="mr-2 h-4 w-4" />
-          <SelectValue placeholder="Project" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value={ANY}>Any project</SelectItem>
-          <SelectItem value={NO_PROJECT}>No project</SelectItem>
-          {projects.map((project) => (
-            <SelectItem key={project.id} value={project.id}>
-              {project.title}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-      )}
-      {showFilters && (
-      <Select
         value={filters.sort ?? 'manual'}
         onValueChange={(v) => update({ sort: v as TaskListFilters['sort'] })}
       >
@@ -109,7 +83,7 @@ export function TaskToolbar({ filters, onFiltersChange, onNewTask, projects, sho
         </SelectContent>
       </Select>
       )}
-      <Button type="button" onClick={onNewTask}>
+      <Button type="button" onClick={onNewTask} disabled={newTaskDisabled}>
         <Plus className="mr-1 h-4 w-4" />
         New Task
       </Button>

@@ -10,7 +10,6 @@ describe('TaskToolbar', () => {
         filters={{ sort: 'manual' }}
         onFiltersChange={onChange}
         onNewTask={() => {}}
-        projects={[]}
       />,
     );
     const input = screen.getByPlaceholderText(/search/i);
@@ -25,7 +24,6 @@ describe('TaskToolbar', () => {
         filters={{ sort: 'manual' }}
         onFiltersChange={() => {}}
         onNewTask={fn}
-        projects={[]}
       />,
     );
     fireEvent.click(screen.getByRole('button', { name: /new task/i }));

@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { format, isPast, isToday } from 'date-fns';
-import { CalendarDays, Edit2, FolderKanban, Trash2 } from 'lucide-react';
+import { CalendarDays, Edit2, FolderKanban, Trash2, UserRound } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
 import { useDeleteTask } from '@/hooks/useTasks';
@@ -71,9 +71,10 @@ function initials(name: string | null, email: string | null): string {
 interface KanbanCardProps {
   task: KanbanTask;
   projects?: Record<string, string>;
+  onOpen?: (id: string) => void;
 }
 
-export function KanbanCard({ task, projects }: KanbanCardProps) {
+export function KanbanCard({ task, projects, onOpen }: KanbanCardProps) {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const {
     attributes,
@@ -93,6 +94,7 @@ export function KanbanCard({ task, projects }: KanbanCardProps) {
   });
 
   const open = useTaskPanel((s) => s.open);
+  const openTask = onOpen ?? open;
   const deleteTask = useDeleteTask();
 
   const style: React.CSSProperties = {
@@ -155,15 +157,15 @@ export function KanbanCard({ task, projects }: KanbanCardProps) {
         onClick={(e) => {
           if (isDragging) return;
           e.stopPropagation();
-          open(task.id);
+          openTask(task.id);
         }}
         onKeyDown={(e) => {
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
-            open(task.id);
+            openTask(task.id);
           }
         }}
-        className="absolute inset-0 z-0 cursor-grab rounded-md focus:outline-none active:cursor-grabbing"
+        className="absolute inset-0 z-0 cursor-pointer rounded-md focus:outline-none active:cursor-grabbing"
       />
       {/* Priority side accent */}
       <span
@@ -187,10 +189,10 @@ export function KanbanCard({ task, projects }: KanbanCardProps) {
             aria-label="Edit task"
             onClick={(e) => {
               e.stopPropagation();
-              open(task.id);
+              openTask(task.id);
             }}
             onPointerDown={(e) => e.stopPropagation()}
-            className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+            className="cursor-pointer rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
           >
             <Edit2 className="h-3 w-3" />
           </button>
@@ -199,7 +201,7 @@ export function KanbanCard({ task, projects }: KanbanCardProps) {
             aria-label="Delete task"
             onClick={handleDelete}
             onPointerDown={(e) => e.stopPropagation()}
-            className="rounded p-1 text-muted-foreground hover:bg-rose-500/10 hover:text-rose-500"
+            className="cursor-pointer rounded p-1 text-muted-foreground hover:bg-rose-500/10 hover:text-rose-500"
           >
             <Trash2 className="h-3 w-3" />
           </button>
@@ -274,9 +276,10 @@ export function KanbanCard({ task, projects }: KanbanCardProps) {
       </div>
 
       {/* Assignees row */}
-      {task.assignees.length > 0 && (
-        <div className="mt-2.5 flex items-center justify-between pl-1">
-          <div className="flex -space-x-1.5">
+      <div className="mt-2.5 flex items-center justify-between pl-1">
+        <div className="flex -space-x-1.5">
+          {task.assignees.length > 0 ? (
+            <>
             {task.assignees.slice(0, 4).map((user) => (
               <div
                 key={user.id}
@@ -294,14 +297,24 @@ export function KanbanCard({ task, projects }: KanbanCardProps) {
                 +{task.assignees.length - 4}
               </div>
             )}
-          </div>
-          {task.assignees.length === 1 && (
-            <span className="text-[11px] text-muted-foreground">
-              {task.assignees[0].name ?? task.assignees[0].email ?? 'Unknown user'}
+            </>
+          ) : (
+            <span
+              title="Unassigned"
+              className="flex h-6 w-6 items-center justify-center rounded-full border border-dashed border-muted-foreground/50 bg-muted/40 text-muted-foreground"
+            >
+              <UserRound className="h-3 w-3" />
             </span>
           )}
         </div>
-      )}
+        <span className="text-[11px] text-muted-foreground">
+          {task.assignees.length === 0
+            ? 'Unassigned'
+            : task.assignees.length === 1
+              ? task.assignees[0].name ?? task.assignees[0].email ?? 'Unknown user'
+              : `${task.assignees.length} assignees`}
+        </span>
+      </div>
       <TaskDeleteDialog
         open={deleteOpen}
         onOpenChange={setDeleteOpen}

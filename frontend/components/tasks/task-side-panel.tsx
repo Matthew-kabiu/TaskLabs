@@ -96,6 +96,7 @@ interface Props {
   members: MemberDTO[];
   labels: LabelDTO[];
   projects: { id: string; title: string }[];
+  defaultProjectId?: string | null;
   onClose: () => void;
   onCreate?: (input: CreateTaskInput & { projectId?: string | null }) => Promise<void>;
   onSave: (id: string, input: UpdateTaskInput & { projectId?: string | null }) => Promise<void>;
@@ -108,6 +109,7 @@ export function TaskSidePanel({
   members,
   labels,
   projects,
+  defaultProjectId = null,
   onClose,
   onCreate,
   onSave,
@@ -134,7 +136,8 @@ export function TaskSidePanel({
   // user had typed. Now a live update to the task you are editing leaves your
   // in-progress text alone; the save button's `isDirty` comparison below still
   // diffs against the freshest server values.
-  const identity = task?.id ?? (open ? '__create__' : null);
+  const identity =
+    task?.id ?? (open ? `__create__:${defaultProjectId ?? ''}` : null);
   const [syncedIdentity, setSyncedIdentity] = useState<string | null>(null);
 
   if (identity !== null && identity !== syncedIdentity) {
@@ -154,7 +157,7 @@ export function TaskSidePanel({
       setPriority('MEDIUM');
       setDueDate(undefined);
       setIsPrivate(false);
-      setProjectId(null);
+      setProjectId(defaultProjectId);
     }
   }
 

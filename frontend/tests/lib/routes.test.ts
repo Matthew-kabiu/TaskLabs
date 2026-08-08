@@ -22,7 +22,7 @@ describe('ROUTES', () => {
 
   it('builds dynamic app paths', () => {
     expect(ROUTES.app.invite('abc')).toBe('/invite/abc');
-    expect(ROUTES.app.task('t1')).toBe('/tasks/t1');
+    expect(ROUTES.app.task('t1')).toBe('/tasks?task=t1');
     expect(ROUTES.app.tasksView('overdue')).toBe('/tasks?view=overdue');
     expect(ROUTES.app.projectsStatus('IN_PROGRESS')).toBe(
       '/projects?status=IN_PROGRESS',

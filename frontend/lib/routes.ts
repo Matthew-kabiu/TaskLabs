@@ -34,6 +34,7 @@ export const BACKEND_ROUTES = {
     create: api.projects.create,
     update: api.projects.update,
     remove: api.projects.remove,
+    setFavorite: api.projects.setFavorite,
     updatesList: api.projects.updatesList,
     addUpdate: api.projects.addUpdate,
     removeUpdate: api.projects.removeUpdate,
@@ -113,7 +114,7 @@ export const ROUTES = {
     tasks: '/tasks',
     tasksView: (view: 'today' | 'overdue' | 'done-this-week') =>
       `/tasks?view=${view}`,
-    task: (id: string) => `/tasks/${id}`,
+    task: (id: string) => `/tasks?task=${encodeURIComponent(id)}`,
     projects: '/projects',
     projectsStatus: (
       status: 'PLANNING' | 'IN_PROGRESS' | 'ON_HOLD' | 'COMPLETED' | 'CANCELLED' | 'ARCHIVED',

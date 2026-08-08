@@ -5,6 +5,7 @@ import TasksPage from '@/app/(app)/tasks/page';
 const testState = vi.hoisted(() => ({
   search: '',
   tasks: [] as Record<string, unknown>[],
+  filters: null as Record<string, unknown> | null,
 }));
 
 vi.mock('next/navigation', () => ({
@@ -17,12 +18,16 @@ vi.mock('@/hooks/useWorkspaces', () => ({
 }));
 
 vi.mock('@/hooks/useTasks', () => ({
-  useTasks: () => ({
-    data: testState.tasks,
-    isLoading: false,
-    isError: false,
-    error: null,
-  }),
+  useTasks: (filters: Record<string, unknown>) => {
+    testState.filters = filters;
+    return {
+      data: testState.tasks,
+      isLoading: false,
+      isError: false,
+      error: null,
+    };
+  },
+  useTask: () => ({ data: null, isLoading: false, isError: false, error: null }),
   useCreateTask: () => ({ mutateAsync: vi.fn() }),
   useUpdateTask: () => ({ mutateAsync: vi.fn() }),
   useDeleteTask: () => ({ mutateAsync: vi.fn() }),
@@ -34,13 +39,26 @@ vi.mock('@/hooks/useLabels', () => ({
 }));
 
 vi.mock('@/hooks/useProjects', () => ({
-  useProjects: () => ({ data: [], isLoading: false }),
+  useProjects: () => ({
+    data: [{ id: 'p1', title: 'Website redesign' }],
+    isLoading: false,
+  }),
+}));
+
+vi.mock('@/hooks/useActiveProject', () => ({
+  useActiveProject: () => ({
+    activeProject: { id: 'p1', title: 'Website redesign' },
+    activeProjectId: 'p1',
+    setActiveProjectId: vi.fn(),
+    isLoading: false,
+  }),
 }));
 
 describe('TasksPage', () => {
   beforeEach(() => {
     testState.search = '';
     testState.tasks = [];
+    testState.filters = null;
   });
 
   it('renders toolbar, create action, and empty list', async () => {
@@ -49,6 +67,8 @@ describe('TasksPage', () => {
       expect(screen.getByPlaceholderText(/search tasks/i)).toBeInTheDocument(),
     );
     expect(screen.getByRole('button', { name: /new task/i })).toBeInTheDocument();
+    expect(screen.getByText('Website redesign')).toBeInTheDocument();
+    expect(testState.filters).toMatchObject({ projectId: 'p1' });
     await waitFor(() =>
       expect(screen.getByText(/no tasks/i)).toBeInTheDocument(),
     );

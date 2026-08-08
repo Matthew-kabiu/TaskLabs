@@ -146,18 +146,43 @@ function updateArgs(
 export function useTasks(
   filters: TaskListFilters = {},
   workspaceIdArg?: string | null,
+  enabled = true,
 ): TaskQueryResult {
   const { activeWorkspaceId } = useWorkspaces();
   const workspaceId = workspaceIdArg ?? activeWorkspaceId;
   const queryArgs = useMemo(
-    () => (workspaceId ? taskListArgs(workspaceId, filters) : 'skip'),
-    [filters, workspaceId],
+    () => (workspaceId && enabled ? taskListArgs(workspaceId, filters) : 'skip'),
+    [enabled, filters, workspaceId],
   );
   const data = useQuery(BACKEND_ROUTES.tasks.list, queryArgs) as TaskDTO[] | undefined;
 
   return {
     data,
-    isLoading: Boolean(workspaceId) && data === undefined,
+    isLoading: Boolean(workspaceId) && enabled && data === undefined,
+    isError: false,
+    error: null,
+  };
+}
+
+export function useTask(
+  taskId?: string | null,
+  workspaceIdArg?: string | null,
+) {
+  const { activeWorkspaceId } = useWorkspaces();
+  const workspaceId = workspaceIdArg ?? activeWorkspaceId;
+  const data = useQuery(
+    BACKEND_ROUTES.tasks.get,
+    workspaceId && taskId
+      ? {
+          workspaceId: workspaceId as Id<'workspaces'>,
+          taskId: taskId as Id<'tasks'>,
+        }
+      : 'skip',
+  ) as TaskDTO | null | undefined;
+
+  return {
+    data,
+    isLoading: Boolean(workspaceId && taskId) && data === undefined,
     isError: false,
     error: null,
   };

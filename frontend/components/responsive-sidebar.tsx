@@ -12,6 +12,7 @@ import {
   Menu,
   PanelLeftClose,
   Settings,
+  Star,
   X,
   Bell,
   Building2,
@@ -41,10 +42,13 @@ import {
 } from '@/components/ui/tooltip';
 import { Button } from '@/components/ui/button';
 import { WorkspaceSwitcher } from '@/components/workspace/workspace-switcher';
+import { ProjectSwitcher } from '@/components/projects/project-switcher';
 import { useNotifications } from '@/hooks/useNotifications';
 import { ROUTES } from '@/lib/routes';
 import { cn } from '@/lib/utils';
 import { TaskLabsLogo } from '@/components/tasklabs-logo';
+import { useTaskPanel } from '@/lib/stores/task-panel';
+import type { ProjectStatus } from '@/hooks/useProjects';
 
 // Static across every render — hoisted so the array and its element objects
 // keep a stable identity.
@@ -58,17 +62,26 @@ const NAV_ITEMS = [
 interface ResponsiveSidebarProps {
   workspaces: { id: string; name: string; isPersonal: boolean }[];
   activeWorkspaceId: string;
+  projects: { id: string; title: string; status: ProjectStatus }[];
+  activeProjectId: string | null;
+  onActiveProjectChange: (projectId: string) => void;
   currentUser?: { name?: string | null; email?: string | null };
+  favoriteProjects?: { id: string; title: string }[];
 }
 
 export function ResponsiveSidebar({
   workspaces,
   activeWorkspaceId,
+  projects,
+  activeProjectId,
+  onActiveProjectChange,
   currentUser,
+  favoriteProjects = [],
 }: ResponsiveSidebarProps) {
   const router = useRouter();
   const { signOut } = useAuthActions();
   const { unreadCount } = useNotifications();
+  const closeTaskPanel = useTaskPanel((state) => state.close);
   const [isCollapsed, setIsCollapsed] = React.useState(true);
   const [mobileOpen, setMobileOpen] = React.useState(false);
 
@@ -83,6 +96,11 @@ export function ResponsiveSidebar({
   const userEmail = currentUser?.email?.trim() ?? '';
   const userLabel = userName || userEmail || 'Account';
   const userInitial = (userName || userEmail || 'A').charAt(0).toUpperCase();
+  const handleProjectChange = (projectId: string) => {
+    closeTaskPanel();
+    onActiveProjectChange(projectId);
+    setMobileOpen(false);
+  };
 
   const renderSidebarContent = (isMobile = false) => (
     <div className="flex h-full flex-col">
@@ -126,11 +144,13 @@ export function ResponsiveSidebar({
         )}
       </div>
 
-      {/* Workspace switcher */}
-      <div className={cn('p-4', isCollapsed && !isMobile && 'hidden')}>
-        <WorkspaceSwitcher
-          workspaces={workspaces}
-          activeId={activeWorkspaceId}
+      {/* Project context */}
+      <div className="p-4">
+        <ProjectSwitcher
+          projects={projects}
+          activeId={activeProjectId}
+          onSelect={handleProjectChange}
+          compact={isCollapsed && !isMobile}
         />
       </div>
 
@@ -156,10 +176,50 @@ export function ResponsiveSidebar({
             )}
           </Tooltip>
         ))}
+        {favoriteProjects.length > 0 ? (
+          <div className="mt-5 border-t pt-4">
+            {(!isCollapsed || isMobile) ? (
+              <p className="mb-2 px-2 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                Favorites
+              </p>
+            ) : null}
+            <div className="flex flex-col gap-1">
+              {favoriteProjects.map((project) => (
+                <Tooltip key={project.id}>
+                  <TooltipTrigger asChild>
+                    <a
+                      href={ROUTES.app.project(project.id)}
+                      onClick={() => setMobileOpen(false)}
+                      className={cn(
+                        'flex min-w-0 items-center gap-2 rounded px-2 py-1.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground',
+                        isCollapsed && !isMobile && 'justify-center',
+                      )}
+                    >
+                      <Star className="h-3.5 w-3.5 shrink-0 fill-current" />
+                      {(!isCollapsed || isMobile) ? (
+                        <span className="truncate">{project.title}</span>
+                      ) : null}
+                    </a>
+                  </TooltipTrigger>
+                  {isCollapsed && !isMobile ? (
+                    <TooltipContent side="right">{project.title}</TooltipContent>
+                  ) : null}
+                </Tooltip>
+              ))}
+            </div>
+          </div>
+        ) : null}
       </nav>
 
       {/* Bottom section */}
       <div className="mt-auto flex flex-col gap-1 border-t p-4">
+        {/* Workspace context */}
+        <WorkspaceSwitcher
+          workspaces={workspaces}
+          activeId={activeWorkspaceId}
+          compact={isCollapsed && !isMobile}
+        />
+
         {/* Notifications — single row matching nav-link style */}
         <Tooltip>
           <TooltipTrigger asChild>

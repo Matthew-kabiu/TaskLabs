@@ -30,11 +30,19 @@ const NO_TASKS: never[] = [];
 export function KanbanBoard({
   filters = {},
   projects,
+  onOpenTask,
+  enabled = true,
 }: {
   filters?: TaskListFilters;
   projects?: Record<string, string>;
+  onOpenTask?: (id: string) => void;
+  enabled?: boolean;
 }) {
-  const { data: tasks = NO_TASKS, isLoading } = useTasks(filters);
+  const { data: tasks = NO_TASKS, isLoading } = useTasks(
+    filters,
+    undefined,
+    enabled,
+  );
   const updateTask = useUpdateTask();
   const reorderTasks = useReorderTasks();
 
@@ -81,7 +89,13 @@ export function KanbanBoard({
         className="flex h-full gap-4 overflow-x-auto p-4"
       >
         {COLUMN_ORDER.map((s) => (
-          <KanbanColumn key={s} status={s} tasks={groups[s]} projects={projects} />
+          <KanbanColumn
+            key={s}
+            status={s}
+            tasks={groups[s]}
+            projects={projects}
+            onOpenTask={onOpenTask}
+          />
         ))}
       </div>
     </DndContext>

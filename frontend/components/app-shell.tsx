@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation';
 import { PageTransition } from '@/components/page-transition';
 import { ResponsiveSidebar } from '@/components/responsive-sidebar';
 import { useWorkspaces } from '@/hooks/useWorkspaces';
+import { useProjects } from '@/hooks/useProjects';
+import { useActiveProject } from '@/hooks/useActiveProject';
 import { BACKEND_ROUTES, ROUTES } from '@/lib/routes';
 import { AppTimeZoneProvider } from '@/components/app-time-zone';
 
@@ -24,6 +26,19 @@ export function AppShell({ children, timeZone }: { children: React.ReactNode; ti
     BACKEND_ROUTES.profile.get,
     isAuthenticated ? {} : 'skip',
   ) as ProfileUser | undefined;
+  const projectsQuery = useProjects({}, activeWorkspaceId);
+  const projects = (projectsQuery.data ?? []).map((project) => ({
+    id: project.id,
+    title: project.title,
+    status: project.status,
+  }));
+  const { activeProjectId, setActiveProjectId } = useActiveProject(
+    projectsQuery.data,
+    activeWorkspaceId,
+  );
+  const favoriteProjects = (projectsQuery.data ?? [])
+    .filter((project) => project.isFavorite)
+    .map((project) => ({ id: project.id, title: project.title }));
 
   useEffect(() => {
     if (setupStatus?.setupNeeded) {
@@ -53,7 +68,11 @@ export function AppShell({ children, timeZone }: { children: React.ReactNode; ti
           isPersonal: workspace.isPersonal,
         }))}
         activeWorkspaceId={activeWorkspaceId}
+        projects={projects}
+        activeProjectId={activeProjectId}
+        onActiveProjectChange={setActiveProjectId}
         currentUser={profile}
+        favoriteProjects={favoriteProjects}
       />
       <main className="flex flex-1 flex-col overflow-hidden pt-14 pb-16 md:pt-0 md:pb-0">
         <PageTransition>{children}</PageTransition>

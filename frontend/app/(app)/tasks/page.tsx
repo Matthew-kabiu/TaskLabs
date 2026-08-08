@@ -1,8 +1,9 @@
 'use client';
 
-import { Suspense, useMemo, useState } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
+import { FolderKanban } from 'lucide-react';
 import {
   endOfDay,
   endOfWeek,
@@ -18,18 +19,21 @@ import { TaskToolbar } from '@/components/tasks/task-toolbar';
 import { TaskSidePanel } from '@/components/tasks/task-side-panel';
 import { TaskDeleteDialog } from '@/components/tasks/task-delete-dialog';
 import { ViewToggle } from '@/components/tasks/view-toggle';
+import { EmptyState } from '@/components/empty-state';
 import { useTasksView } from '@/lib/hooks/use-tasks-view';
 import { useTaskPanel } from '@/lib/stores/task-panel';
 import {
   useCreateTask,
   useDeleteTask,
   useDeleteTasks,
+  useTask,
   useTasks,
   useUpdateTask,
   type TaskDTO,
 } from '@/hooks/useTasks';
 import { useWorkspaceMembers, useWorkspaces } from '@/hooks/useWorkspaces';
 import { useProjects } from '@/hooks/useProjects';
+import { useActiveProject } from '@/hooks/useActiveProject';
 import type { TaskListFilters } from '@/hooks/useTasks';
 import { ROUTES } from '@/lib/routes';
 
@@ -49,6 +53,7 @@ function TasksPageContent() {
   const searchParams = useSearchParams();
   const viewParam = searchParams?.get('view') ?? null;
   const dashboardView = isDashboardTaskView(viewParam) ? viewParam : null;
+  const taskParam = searchParams?.get('task') ?? null;
   const [filters, setFilters] = useState<TaskListFilters>({ sort: 'manual' });
   const [createOpen, setCreateOpen] = useState(false);
   const [batchDeleteOpen, setBatchDeleteOpen] = useState(false);
@@ -58,10 +63,35 @@ function TasksPageContent() {
   const openId = useTaskPanel((s) => s.taskId);
   const openPanel = useTaskPanel((s) => s.open);
   const closePanel = useTaskPanel((s) => s.close);
-
-  const tasksQuery = useTasks(filters, activeWorkspaceId);
   const membersQuery = useWorkspaceMembers(activeWorkspaceId);
   const projectsQuery = useProjects({}, activeWorkspaceId);
+  const { activeProject, activeProjectId, setActiveProjectId } = useActiveProject(
+    projectsQuery.data,
+    activeWorkspaceId,
+  );
+  const linkedTaskQuery = useTask(taskParam, activeWorkspaceId);
+  const scopedFilters = useMemo<TaskListFilters>(
+    () => ({ ...filters, projectId: activeProjectId ?? undefined }),
+    [activeProjectId, filters],
+  );
+  const tasksQuery = useTasks(
+    scopedFilters,
+    activeWorkspaceId,
+    Boolean(activeProjectId),
+  );
+  useEffect(() => {
+    const linkedProjectId = linkedTaskQuery.data?.projectId;
+    if (
+      linkedProjectId &&
+      projectsQuery.data?.some((project) => project.id === linkedProjectId)
+    ) {
+      setActiveProjectId(linkedProjectId);
+    }
+  }, [linkedTaskQuery.data?.projectId, projectsQuery.data, setActiveProjectId]);
+
+  useEffect(() => {
+    if (taskParam) openPanel(taskParam);
+  }, [activeProjectId, openPanel, taskParam]);
 
   const createTask = useCreateTask(activeWorkspaceId);
   const updateTask = useUpdateTask(activeWorkspaceId);
@@ -69,9 +99,11 @@ function TasksPageContent() {
   const deleteTasks = useDeleteTasks(activeWorkspaceId);
 
   const handleCreate = async (input: Parameters<typeof createTask.mutateAsync>[0]) => {
+    if (!activeProjectId) return;
     try {
       await createTask.mutateAsync({
         ...input,
+        projectId: input.projectId ?? activeProjectId,
       });
       toast.success('Task created');
     } catch (err) {
@@ -159,15 +191,25 @@ function TasksPageContent() {
     );
   });
   const selectedCount = tasks.filter((task) => selectedIds.has(task.id)).length;
-  const openTask = openId ? tasks.find((t) => t.id === openId) ?? null : null;
+  const openTask = openId
+    ? tasks.find((task) => task.id === openId) ??
+      (linkedTaskQuery.data?.id === openId ? linkedTaskQuery.data : null)
+    : null;
   const projectById = Object.fromEntries(
     (projectsQuery.data ?? []).map((project) => [project.id, project.title]),
   );
 
   return (
     <div className="flex flex-col gap-4 p-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Tasks</h1>
+      <div className="flex items-center justify-between gap-4">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-semibold">Tasks</h1>
+          <p className="mt-0.5 truncate text-xs text-muted-foreground">
+            {projectsQuery.isLoading
+              ? 'Loading project…'
+              : activeProject?.title ?? 'No active project'}
+          </p>
+        </div>
         <ViewToggle value={view} onChange={setView} />
       </div>
 
@@ -175,17 +217,16 @@ function TasksPageContent() {
         filters={filters}
         onFiltersChange={setFilters}
         onNewTask={handleNewTask}
+        newTaskDisabled={!activeProjectId}
         showFilters={view !== 'kanban'}
-        projects={projectsQuery.data?.map((project) => ({
-          id: project.id,
-          title: project.title,
-        })) ?? []}
       />
 
       {dashboardView ? (
         <div className="flex items-center justify-between gap-3 rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-sm">
           <span>
-            Showing dashboard view: <strong>{DASHBOARD_VIEW_LABELS[dashboardView]}</strong>
+            Showing dashboard view:{' '}
+            <strong>{DASHBOARD_VIEW_LABELS[dashboardView]}</strong>
+            {activeProject ? ` in ${activeProject.title}` : ''}
           </span>
           <Link
             href={ROUTES.app.tasks}
@@ -196,8 +237,25 @@ function TasksPageContent() {
         </div>
       ) : null}
 
-      {view === 'kanban' ? (
-        <KanbanBoard filters={filters} projects={projectById} />
+      {projectsQuery.isLoading ? (
+        <div className="rounded-md border p-8 text-center text-sm text-muted-foreground">
+          Loading project…
+        </div>
+      ) : !activeProjectId ? (
+        <div className="rounded-md border border-border/60">
+          <EmptyState
+            icon={FolderKanban}
+            title="No project selected"
+            description="Create a project, then select it from the sidebar to manage its tasks."
+            action={null}
+          />
+        </div>
+      ) : view === 'kanban' ? (
+        <KanbanBoard
+          filters={scopedFilters}
+          projects={projectById}
+          enabled={Boolean(activeProjectId)}
+        />
       ) : tasksQuery.isLoading ? (
         <div className="rounded-md border p-8 text-center text-sm text-muted-foreground">
           Loading tasks…
@@ -221,7 +279,7 @@ function TasksPageContent() {
       )}
 
       <TaskSidePanel
-        key={createOpen ? 'create' : openTask?.id ?? 'closed'}
+        key={createOpen ? `create-${activeProjectId}` : openTask?.id ?? 'closed'}
         open={createOpen || Boolean(openTask)}
         task={openTask}
         members={membersQuery.data.map((member) => ({
@@ -234,6 +292,7 @@ function TasksPageContent() {
           id: project.id,
           title: project.title,
         })) ?? []}
+        defaultProjectId={activeProjectId}
         onClose={() => {
           setCreateOpen(false);
           closePanel();

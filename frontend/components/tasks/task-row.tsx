@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { format } from 'date-fns';
-import { Edit2, FolderKanban, Trash2 } from 'lucide-react';
+import { Edit2, FolderKanban, Trash2, UserRound } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { PRIORITY_COLORS } from '@/lib/tasks/colors';
@@ -60,7 +60,7 @@ export function TaskRow({
       />
       <button
         type="button"
-        className="flex-1 truncate text-left text-sm"
+        className="flex-1 cursor-pointer truncate text-left text-sm"
         onClick={() => onOpen(task.id)}
       >
         <span className={isDone ? 'line-through text-muted-foreground' : undefined}>
@@ -93,7 +93,7 @@ export function TaskRow({
           </span>
         )}
         <div className="flex -space-x-1.5">
-          {task.assignees.map((user) => (
+          {task.assignees.length > 0 ? task.assignees.map((user) => (
             <span
               key={user.id}
               title={user.name ?? user.email ?? 'Unknown user'}
@@ -101,12 +101,19 @@ export function TaskRow({
             >
               {initial(user)}
             </span>
-          ))}
+          )) : (
+            <span
+              title="Unassigned"
+              className="grid h-6 w-6 place-items-center rounded-full border border-dashed border-muted-foreground/50 bg-muted/40 text-muted-foreground"
+            >
+              <UserRound className="h-3 w-3" />
+            </span>
+          )}
         </div>
         <button
           type="button"
           aria-label={`Delete ${task.title}`}
-          className="rounded p-1 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+          className="cursor-pointer rounded p-1 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
           onClick={() => setDeleteOpen(true)}
         >
           <Trash2 className="h-3.5 w-3.5" aria-hidden />

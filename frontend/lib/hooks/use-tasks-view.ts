@@ -3,12 +3,12 @@
 import { useCallback, useSyncExternalStore } from 'react';
 
 export type TasksView = 'list' | 'kanban';
-const STORAGE_KEY = 'tl_tasks_view';
+const STORAGE_KEY = 'tl_tasks_view_v2';
 
 function readStored(): TasksView {
-  if (typeof window === 'undefined') return 'list';
+  if (typeof window === 'undefined') return 'kanban';
   const raw = window.localStorage.getItem(STORAGE_KEY);
-  return raw === 'kanban' ? 'kanban' : 'list';
+  return raw === 'list' ? 'list' : 'kanban';
 }
 
 // useSyncExternalStore reads localStorage on mount without an effect, so
@@ -29,7 +29,7 @@ export function useTasksView(): {
   const view = useSyncExternalStore<TasksView>(
     subscribe,
     readStored,
-    () => 'list', // server snapshot — matches initial client render before hydration
+    () => 'kanban', // server snapshot — matches the default client view
   );
 
   const setView = useCallback((v: TasksView) => {
