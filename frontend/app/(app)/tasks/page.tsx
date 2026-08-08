@@ -250,7 +250,7 @@ function TasksPageContent() {
             action={null}
           />
         </div>
-      ) : view === 'kanban' ? (
+      ) : view === 'kanban' && dashboardView === null ? (
         <KanbanBoard
           filters={scopedFilters}
           projects={projectById}

@@ -32,6 +32,7 @@ vi.mock('@/hooks/useTasks', () => ({
   useUpdateTask: () => ({ mutateAsync: vi.fn() }),
   useDeleteTask: () => ({ mutateAsync: vi.fn() }),
   useDeleteTasks: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useReorderTasks: () => ({ mutate: vi.fn() }),
 }));
 
 vi.mock('@/hooks/useLabels', () => ({
@@ -61,7 +62,7 @@ describe('TasksPage', () => {
     testState.filters = null;
   });
 
-  it('renders toolbar, create action, and empty list', async () => {
+  it('renders toolbar, create action, and the default Kanban view', async () => {
     render(<TasksPage />);
     await waitFor(() =>
       expect(screen.getByPlaceholderText(/search tasks/i)).toBeInTheDocument(),
@@ -69,9 +70,8 @@ describe('TasksPage', () => {
     expect(screen.getByRole('button', { name: /new task/i })).toBeInTheDocument();
     expect(screen.getByText('Website redesign')).toBeInTheDocument();
     expect(testState.filters).toMatchObject({ projectId: 'p1' });
-    await waitFor(() =>
-      expect(screen.getByText(/no tasks/i)).toBeInTheDocument(),
-    );
+    expect(screen.getByText('Backlog')).toBeInTheDocument();
+    expect(screen.getByText('In Progress')).toBeInTheDocument();
   });
 
   it('opens the create task panel without creating an untitled task', async () => {
