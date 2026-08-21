@@ -121,7 +121,7 @@ export default function DocsMcpPage() {
       <DocsH2 id="tools">Available tools</DocsH2>
       <DocsList
         items={[
-          <><strong>tasks</strong> — list, get, create, update, delete, deleteMany, reorder</>,
+          <><strong>tasks</strong> — list, get, create, update, delete, deleteMany, reorder, comments list/create/update/delete</>,
           <><strong>projects</strong> — list, get, create, update, delete, favorite, updates list/create/delete</>,
           <><strong>events</strong> — list, get, create, update, delete, complete</>,
           <><strong>labels</strong> — list, create, update, delete</>,
@@ -166,6 +166,13 @@ export default function DocsMcpPage() {
         GitHub-flavored Markdown in its <DocsInlineCode>body</DocsInlineCode>, up
         to 10,000 characters. The web app renders the same format without raw
         HTML or embedded images.
+      </DocsP>
+      <DocsP>
+        <DocsInlineCode>tasks.comments.create</DocsInlineCode> and{' '}
+        <DocsInlineCode>tasks.comments.update</DocsInlineCode> accept
+        GitHub-flavored Markdown in their <DocsInlineCode>body</DocsInlineCode>,
+        up to 10,000 characters. Comments are unlimited in number; edit and
+        delete are author-only, and deleting a task removes its comments.
       </DocsP>
       <DocsP>
         A project’s <DocsInlineCode>endDate</DocsInlineCode> must be equal to or

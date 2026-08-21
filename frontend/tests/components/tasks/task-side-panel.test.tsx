@@ -2,6 +2,14 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { TaskSidePanel } from '@/components/tasks/task-side-panel';
 
+// The comments section talks to Convex (auth + live queries); this suite covers the
+// panel's own form behavior, so stub it out and let task-comments own its coverage.
+vi.mock('@/components/tasks/task-comments', () => ({
+  TaskComments: ({ taskId }: { taskId: string }) => (
+    <div data-testid="task-comments">{taskId}</div>
+  ),
+}));
+
 const task = {
   id: 't1',
   number: 1,
