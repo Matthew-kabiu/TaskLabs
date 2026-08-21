@@ -152,6 +152,51 @@ export const MCP_TOOLS = [
     ),
   },
   {
+    name: 'tasks.comments.list',
+    description: 'List comments on a task in the API key workspace, oldest first.',
+    inputSchema: objectSchema({ taskId: idSchema }, ['taskId']),
+  },
+  {
+    name: 'tasks.comments.create',
+    description:
+      'Add a Markdown comment to a task in the API key workspace. Use for implementation notes and status updates when moving work across the board.',
+    inputSchema: objectSchema(
+      {
+        taskId: idSchema,
+        body: {
+          type: 'string',
+          description: 'GitHub-flavored Markdown, up to 10000 characters.',
+        },
+      },
+      ['taskId', 'body'],
+    ),
+  },
+  {
+    name: 'tasks.comments.update',
+    description:
+      'Edit a task comment you authored, in the API key workspace.',
+    inputSchema: objectSchema(
+      {
+        taskId: idSchema,
+        commentId: idSchema,
+        body: {
+          type: 'string',
+          description: 'GitHub-flavored Markdown, up to 10000 characters.',
+        },
+      },
+      ['taskId', 'commentId', 'body'],
+    ),
+  },
+  {
+    name: 'tasks.comments.delete',
+    description:
+      'Delete a task comment you authored, from the API key workspace.',
+    inputSchema: objectSchema(
+      { taskId: idSchema, commentId: idSchema },
+      ['taskId', 'commentId'],
+    ),
+  },
+  {
     name: 'projects.list',
     description: 'List visible projects in the API key workspace.',
     inputSchema: objectSchema({

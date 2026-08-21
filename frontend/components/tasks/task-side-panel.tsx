@@ -31,6 +31,7 @@ import type { TaskDTO } from '@/hooks/useTasks';
 import type { LabelDTO } from '@/hooks/useLabels';
 import type { CreateTaskInput, UpdateTaskInput } from '@/lib/validations/task.schema';
 import { TaskDeleteDialog } from '@/components/tasks/task-delete-dialog';
+import { TaskComments } from '@/components/tasks/task-comments';
 
 const AVATAR_PALETTE = [
   { bg: 'bg-sky-500/20',    text: 'text-sky-500',     dot: 'bg-sky-500' },
@@ -97,6 +98,7 @@ interface Props {
   labels: LabelDTO[];
   projects: { id: string; title: string }[];
   defaultProjectId?: string | null;
+  workspaceId?: string | null;
   onClose: () => void;
   onCreate?: (input: CreateTaskInput & { projectId?: string | null }) => Promise<void>;
   onSave: (id: string, input: UpdateTaskInput & { projectId?: string | null }) => Promise<void>;
@@ -110,6 +112,7 @@ export function TaskSidePanel({
   labels,
   projects,
   defaultProjectId = null,
+  workspaceId = null,
   onClose,
   onCreate,
   onSave,
@@ -253,6 +256,10 @@ export function TaskSidePanel({
               onChange={(e) => setDescription(e.target.value)}
             />
           </div>
+
+          {task ? (
+            <TaskComments taskId={task.id} workspaceId={workspaceId} members={members} />
+          ) : null}
 
           <div className="grid grid-cols-2 gap-4">
             <div className="flex flex-col gap-2">

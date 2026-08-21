@@ -293,6 +293,7 @@ function TasksPageContent() {
           title: project.title,
         })) ?? []}
         defaultProjectId={activeProjectId}
+        workspaceId={activeWorkspaceId}
         onClose={() => {
           setCreateOpen(false);
           closePanel();

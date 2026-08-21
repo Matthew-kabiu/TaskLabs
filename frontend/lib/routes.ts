@@ -22,6 +22,12 @@ export const BACKEND_ROUTES = {
     removeMany: api.tasks.removeMany,
     reorder: api.tasks.reorder,
   },
+  taskComments: {
+    list: api.taskComments.list,
+    create: api.taskComments.create,
+    update: api.taskComments.update,
+    remove: api.taskComments.remove,
+  },
   labels: {
     list: api.labels.list,
     create: api.labels.create,
