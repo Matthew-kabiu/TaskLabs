@@ -109,6 +109,18 @@ export default defineSchema({
     .index("by_task_user", ["taskId", "userId"])
     .index("by_workspace", ["workspaceId"]),
 
+  taskComments: defineTable({
+    workspaceId: v.id("workspaces"),
+    taskId: v.id("tasks"),
+    authorId: v.id("users"),
+    body: v.string(),
+    editedAt: v.optional(v.number()),
+    createdAt: v.number(),
+  })
+    .index("by_task", ["taskId"])
+    .index("by_task_created", ["taskId", "createdAt"])
+    .index("by_workspace", ["workspaceId"]),
+
   projects: defineTable({
     workspaceId: v.id("workspaces"),
     creatorId: v.id("users"),

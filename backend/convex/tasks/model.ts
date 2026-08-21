@@ -176,9 +176,10 @@ export async function deleteTaskRelations(
   ctx: MutationCtx,
   taskId: Id<"tasks">,
 ) {
-  const [assignees, labels] = await Promise.all([
+  const [assignees, labels, comments] = await Promise.all([
     listTaskAssigneeRows(ctx, taskId),
     listTaskLabelRows(ctx, taskId),
+    listTaskCommentRows(ctx, taskId),
   ]);
   for (const row of assignees) {
     await ctx.db.delete(row._id);
@@ -186,6 +187,16 @@ export async function deleteTaskRelations(
   for (const row of labels) {
     await ctx.db.delete(row._id);
   }
+  for (const row of comments) {
+    await ctx.db.delete(row._id);
+  }
+}
+
+export async function listTaskCommentRows(ctx: DbCtx, taskId: Id<"tasks">) {
+  return await ctx.db
+    .query("taskComments")
+    .withIndex("by_task", (q) => q.eq("taskId", taskId))
+    .collect();
 }
 
 export async function getTaskInWorkspace(

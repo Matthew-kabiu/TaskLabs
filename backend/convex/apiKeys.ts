@@ -47,6 +47,12 @@ import {
   updateProjectForActor,
 } from "./projects/service";
 import {
+  addTaskCommentForActor,
+  listTaskCommentsForActor,
+  removeTaskCommentForActor,
+  updateTaskCommentForActor,
+} from "./taskComments/service";
+import {
   getWorkspaceForActor,
   listMembersForActor,
   removeMemberForActor,
@@ -84,6 +90,10 @@ const MCP_TOOL_SCOPES: Record<string, ApiKeyScope[]> = {
   "tasks.delete": ["tasks:write"],
   "tasks.deleteMany": ["tasks:write"],
   "tasks.reorder": ["tasks:write"],
+  "tasks.comments.list": ["tasks:read"],
+  "tasks.comments.create": ["tasks:write"],
+  "tasks.comments.update": ["tasks:write"],
+  "tasks.comments.delete": ["tasks:write"],
   "projects.list": ["projects:read"],
   "projects.get": ["projects:read"],
   "projects.create": ["projects:write"],
@@ -511,9 +521,45 @@ export const mcpDispatchMutation = internalMutation({
               position: row.position,
             };
           }),
-true,
+          true,
         );
       }
+      case "tasks.comments.list":
+        return await listTaskCommentsForActor(
+          ctx,
+          actor.workspaceId,
+          actor.userId,
+          stringArg(input, "taskId") as Id<"tasks">,
+          true,
+        );
+      case "tasks.comments.create":
+        return await addTaskCommentForActor(
+          ctx,
+          actor.workspaceId,
+          actor.userId,
+          stringArg(input, "taskId") as Id<"tasks">,
+          stringArg(input, "body"),
+          true,
+        );
+      case "tasks.comments.update":
+        return await updateTaskCommentForActor(
+          ctx,
+          actor.workspaceId,
+          actor.userId,
+          stringArg(input, "taskId") as Id<"tasks">,
+          stringArg(input, "commentId") as Id<"taskComments">,
+          stringArg(input, "body"),
+          true,
+        );
+      case "tasks.comments.delete":
+        return await removeTaskCommentForActor(
+          ctx,
+          actor.workspaceId,
+          actor.userId,
+          stringArg(input, "taskId") as Id<"tasks">,
+          stringArg(input, "commentId") as Id<"taskComments">,
+          true,
+        );
       case "projects.list":
         return await listProjectsForActor(ctx, actor.workspaceId, actor.userId, {
           status: optionalString(input, "status") as any,
