@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { DragEndEvent } from '@dnd-kit/core';
 import { KanbanBoard } from '@/components/tasks/kanban-board';
 import { handleDragEnd } from '@/lib/tasks/kanban-drag';
@@ -65,6 +65,19 @@ describe('KanbanBoard', () => {
     expect(screen.getByLabelText('Done column')).toBeInTheDocument();
     expect(screen.getByLabelText('Archived column')).toBeInTheDocument();
     expect(screen.getByLabelText('Cancelled column')).toBeInTheDocument();
+  });
+
+  it('scrolls one column in either direction from the board controls', () => {
+    render(<KanbanBoard />);
+    const board = screen.getByRole('region', { name: 'Kanban board' });
+    const scrollBy = vi.fn();
+    Object.defineProperty(board, 'scrollBy', { value: scrollBy });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Scroll board right' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Scroll board left' }));
+
+    expect(scrollBy).toHaveBeenNthCalledWith(1, { left: 304 });
+    expect(scrollBy).toHaveBeenNthCalledWith(2, { left: -304 });
   });
 
   it('cross-column drag calls useUpdateTask with new status + position', async () => {

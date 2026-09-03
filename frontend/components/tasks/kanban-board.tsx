@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import {
   DndContext,
   KeyboardSensor,
@@ -19,6 +20,7 @@ import {
   handleDragEnd,
 } from '@/lib/tasks/kanban-drag';
 import { KanbanColumn } from './kanban-column';
+import { Button } from '@/components/ui/button';
 import type { KanbanTask } from './kanban-card';
 import type { TaskListFilters } from '@/hooks/useTasks';
 
@@ -26,6 +28,7 @@ import type { TaskListFilters } from '@/hooks/useTasks';
 // Module-level constant so the default never produces a fresh array identity,
 // which would invalidate the useMemo below on every render.
 const NO_TASKS: never[] = [];
+const COLUMN_SCROLL_DISTANCE = 304;
 
 export function KanbanBoard({
   filters = {},
@@ -38,6 +41,7 @@ export function KanbanBoard({
   onOpenTask?: (id: string) => void;
   enabled?: boolean;
 }) {
+  const boardRef = useRef<HTMLDivElement>(null);
   const { data: tasks = NO_TASKS, isLoading } = useTasks(
     filters,
     undefined,
@@ -70,6 +74,12 @@ export function KanbanBoard({
     }),
   );
 
+  const scrollBoard = (direction: -1 | 1) => {
+    boardRef.current?.scrollBy({
+      left: direction * COLUMN_SCROLL_DISTANCE,
+    });
+  };
+
   if (isLoading) {
     return (
       <div className="p-6 text-sm text-muted-foreground">Loading board…</div>
@@ -83,20 +93,52 @@ export function KanbanBoard({
       measuring={{ droppable: { strategy: MeasuringStrategy.Always } }}
       onDragEnd={handleDragEnd}
     >
-      <div
-        role="region"
-        aria-label="Kanban board"
-        className="flex h-full gap-4 overflow-x-auto p-4"
-      >
-        {COLUMN_ORDER.map((s) => (
-          <KanbanColumn
-            key={s}
-            status={s}
-            tasks={groups[s]}
-            projects={projects}
-            onOpenTask={onOpenTask}
-          />
-        ))}
+      <div className="flex h-full min-h-0 flex-col">
+        <div
+          role="group"
+          aria-label="Kanban board navigation"
+          className="flex shrink-0 items-center justify-end gap-1 px-4 pt-4"
+        >
+          <span className="mr-1 text-xs text-muted-foreground">Scroll board</span>
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            className="h-8 w-8"
+            aria-label="Scroll board left"
+            title="Scroll board left"
+            onClick={() => scrollBoard(-1)}
+          >
+            <ChevronLeft aria-hidden="true" />
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            className="h-8 w-8"
+            aria-label="Scroll board right"
+            title="Scroll board right"
+            onClick={() => scrollBoard(1)}
+          >
+            <ChevronRight aria-hidden="true" />
+          </Button>
+        </div>
+        <div
+          ref={boardRef}
+          role="region"
+          aria-label="Kanban board"
+          className="flex h-full min-h-0 gap-4 overflow-x-auto overscroll-x-contain scroll-smooth p-4 pt-2"
+        >
+          {COLUMN_ORDER.map((s) => (
+            <KanbanColumn
+              key={s}
+              status={s}
+              tasks={groups[s]}
+              projects={projects}
+              onOpenTask={onOpenTask}
+            />
+          ))}
+        </div>
       </div>
     </DndContext>
   );
