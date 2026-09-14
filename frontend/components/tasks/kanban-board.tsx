@@ -94,7 +94,7 @@ export function KanbanBoard({
       measuring={{ droppable: { strategy: MeasuringStrategy.Always } }}
       onDragEnd={handleDragEnd}
     >
-      <div className="flex h-full min-h-0 flex-col">
+      <div className="flex h-full min-h-0 flex-1 flex-col">
         <div
           role="group"
           aria-label="Kanban board navigation"
@@ -128,7 +128,7 @@ export function KanbanBoard({
           ref={boardRef}
           role="region"
           aria-label="Kanban board"
-          className="flex h-full min-h-0 gap-4 overflow-x-auto overscroll-x-contain scroll-smooth p-4 pt-2"
+          className="flex min-h-0 flex-1 gap-4 overflow-x-auto overflow-y-hidden overscroll-x-contain scroll-smooth p-4 pt-2"
         >
           {COLUMN_ORDER.map((s) => (
             <KanbanColumn

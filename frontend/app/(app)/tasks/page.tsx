@@ -36,6 +36,7 @@ import { useProjects } from '@/hooks/useProjects';
 import { useActiveProject } from '@/hooks/useActiveProject';
 import type { TaskListFilters } from '@/hooks/useTasks';
 import { ROUTES } from '@/lib/routes';
+import { cn } from '@/lib/utils';
 
 type DashboardTaskView = 'today' | 'overdue' | 'done-this-week';
 
@@ -200,7 +201,15 @@ function TasksPageContent() {
   );
 
   return (
-    <div className="flex flex-col gap-4 p-6">
+    <div
+      data-testid="tasks-page"
+      className={cn(
+        'flex flex-col gap-4 p-6',
+        view === 'kanban' &&
+          dashboardView === null &&
+          'h-[calc(100dvh-7.5rem)] min-h-0 overflow-hidden md:h-dvh',
+      )}
+    >
       <div className="flex items-center justify-between gap-4">
         <div className="min-w-0">
           <h1 className="text-2xl font-semibold">Tasks</h1>
