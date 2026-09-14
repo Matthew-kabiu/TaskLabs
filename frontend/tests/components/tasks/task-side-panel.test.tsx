@@ -101,6 +101,33 @@ describe('TaskSidePanel', () => {
     );
   });
 
+  it('assigns a workspace member from the properties panel', async () => {
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    render(
+      <TaskSidePanel
+        open
+        task={task}
+        members={[{ id: 'u1', name: 'Matthew Kabiu', email: 'matt@example.com' }]}
+        labels={[]}
+        projects={[]}
+        onClose={() => {}}
+        onSave={onSave}
+        onDelete={async () => {}}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit assignees' }));
+    fireEvent.click(screen.getByText('Matthew Kabiu'));
+    fireEvent.click(screen.getByRole('button', { name: /save changes/i }));
+
+    await waitFor(() =>
+      expect(onSave).toHaveBeenCalledWith(
+        't1',
+        expect.objectContaining({ assigneeIds: ['u1'] }),
+      ),
+    );
+  });
+
   it('defaults new tasks to the active project', async () => {
     const onCreate = vi.fn().mockResolvedValue(undefined);
     render(

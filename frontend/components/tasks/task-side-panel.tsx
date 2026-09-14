@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { format } from 'date-fns';
-import { Calendar as CalendarIcon, Check, EyeOff, FolderKanban, Loader2, PencilLine, Tag, Trash2, Users } from 'lucide-react';
+import { Calendar as CalendarIcon, Check, ChevronDown, EyeOff, FolderKanban, Loader2, PencilLine, Tag, Trash2, Users } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -50,6 +50,10 @@ function avatarTheme(seed: string) {
 
 function userInitials(name: string | null, email: string): string {
   return (name ?? email).slice(0, 2).toUpperCase();
+}
+
+function sameIds(left: string[], right: string[]) {
+  return left.length === right.length && left.every((id) => right.includes(id));
 }
 import { cn } from '@/lib/utils';
 
@@ -125,6 +129,7 @@ export function TaskSidePanel({
   const [dueDate, setDueDate] = useState<Date | undefined>();
   const [isPrivate, setIsPrivate] = useState(false);
   const [projectId, setProjectId] = useState<string | null>(null);
+  const [assigneeIds, setAssigneeIds] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [editingDescription, setEditingDescription] = useState(false);
@@ -154,6 +159,7 @@ export function TaskSidePanel({
       setDueDate(task.dueDate ? new Date(task.dueDate) : undefined);
       setIsPrivate(task.isPrivate);
       setProjectId(task.projectId);
+      setAssigneeIds(task.assignees.map((assignee) => assignee.userId));
       setEditingDescription(false);
     } else {
       setTitle('');
@@ -163,6 +169,7 @@ export function TaskSidePanel({
       setDueDate(undefined);
       setIsPrivate(false);
       setProjectId(defaultProjectId);
+      setAssigneeIds([]);
       setEditingDescription(true);
     }
   }
@@ -178,11 +185,21 @@ export function TaskSidePanel({
       (dueDate?.getTime() ?? null) !==
         (task.dueDate ? new Date(task.dueDate).getTime() : null) ||
       isPrivate !== task.isPrivate ||
-      projectId !== task.projectId
+      projectId !== task.projectId ||
+      !sameIds(assigneeIds, task.assignees.map((assignee) => assignee.userId))
     : title.trim().length > 0;
 
   const taskLabels = task?.labels ?? labels;
-  const taskAssignees = task?.assignees ?? [];
+  const selectedAssignees = assigneeIds.map((userId) => {
+    const member = members.find((candidate) => candidate.id === userId);
+    const existing = task?.assignees.find((assignee) => assignee.userId === userId);
+    return {
+      id: userId,
+      userId,
+      name: member?.name ?? existing?.name ?? null,
+      email: member?.email ?? existing?.email ?? '',
+    };
+  });
 
   const handleClose = () => {
     setEditingDescription(false);
@@ -201,6 +218,7 @@ export function TaskSidePanel({
           dueDate: dueDate ?? null,
           isPrivate,
           projectId,
+          assigneeIds,
         });
       } else if (onCreate) {
         await onCreate({
@@ -210,7 +228,7 @@ export function TaskSidePanel({
           priority,
           dueDate,
           isPrivate,
-          assigneeIds: [],
+          assigneeIds,
           labelIds: [],
           projectId: projectId ?? undefined,
         });
@@ -430,28 +448,84 @@ export function TaskSidePanel({
                 </Select>
               </div>
 
-              <div className="grid grid-cols-[5.5rem_minmax(0,1fr)] items-start gap-3 py-3">
-                <Label className="flex items-center gap-1.5 pt-1 text-xs text-muted-foreground">
+              <div className="grid grid-cols-[5.5rem_minmax(0,1fr)] items-center gap-3 py-2.5">
+                <Label className="flex items-center gap-1.5 text-xs text-muted-foreground">
                   <Users className="h-3.5 w-3.5" />
                   Assignees
                 </Label>
-                <div className="flex min-w-0 flex-wrap gap-1.5">
-                  {taskAssignees.length === 0 ? (
-                    <span className="px-2 py-1 text-xs text-muted-foreground">Unassigned</span>
-                  ) : (
-                    taskAssignees.map((assignee) => {
-                      const theme = avatarTheme(assignee.userId);
-                      return (
-                        <span key={assignee.id} className="inline-flex max-w-full items-center gap-1.5 rounded-full border bg-background py-0.5 pl-0.5 pr-2 text-xs">
-                          <span className={cn('flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[9px] font-semibold', theme.bg, theme.text)}>
-                            {userInitials(assignee.name, assignee.email ?? '')}
-                          </span>
-                          <span className="truncate">{assignee.name ?? assignee.email ?? 'Unknown'}</span>
-                        </span>
-                      );
-                    })
-                  )}
-                </div>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 min-w-0 justify-between gap-2 px-2 text-xs font-normal"
+                      aria-label="Edit assignees"
+                    >
+                      <span className="min-w-0 truncate">
+                        {selectedAssignees.length === 0
+                          ? task
+                            ? 'Unassigned'
+                            : 'Creator by default'
+                          : selectedAssignees.length === 1
+                            ? selectedAssignees[0].name || selectedAssignees[0].email || 'Unknown'
+                            : `${selectedAssignees.length} assignees`}
+                      </span>
+                      <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-64 p-2" align="end">
+                    <p className="px-2 pb-2 text-xs font-medium">Assign workspace members</p>
+                    {members.length === 0 ? (
+                      <p className="px-2 py-3 text-xs text-muted-foreground">
+                        No workspace members available.
+                      </p>
+                    ) : (
+                      <div className="space-y-1">
+                        {members.map((member) => {
+                          const checked = assigneeIds.includes(member.id);
+                          const theme = avatarTheme(member.id);
+                          return (
+                            <label
+                              key={member.id}
+                              className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-xs hover:bg-muted"
+                            >
+                              <Checkbox
+                                checked={checked}
+                                onCheckedChange={(value) =>
+                                  setAssigneeIds((current) =>
+                                    value === true
+                                      ? current.includes(member.id)
+                                        ? current
+                                        : [...current, member.id]
+                                      : current.filter((id) => id !== member.id),
+                                  )
+                                }
+                              />
+                              <span className={cn('flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[9px] font-semibold', theme.bg, theme.text)}>
+                                {userInitials(member.name, member.email)}
+                              </span>
+                              <span className="min-w-0 flex-1 truncate">
+                                {member.name ?? member.email}
+                              </span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    )}
+                    {task && assigneeIds.length > 0 ? (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="mt-2 h-7 w-full justify-start px-2 text-xs text-muted-foreground"
+                        onClick={() => setAssigneeIds([])}
+                      >
+                        Clear assignees
+                      </Button>
+                    ) : null}
+                  </PopoverContent>
+                </Popover>
               </div>
 
               <div className="grid grid-cols-[5.5rem_minmax(0,1fr)] items-start gap-3 py-3">
