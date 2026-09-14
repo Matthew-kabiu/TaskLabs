@@ -58,6 +58,12 @@ beforeEach(() => {
 describe('KanbanBoard', () => {
   it('renders the status columns with their counts', () => {
     render(<KanbanBoard />);
+    expect(screen.getByRole('region', { name: 'Kanban board' })).toHaveClass(
+      'min-h-0',
+      'flex-1',
+      'overflow-x-auto',
+      'overflow-y-hidden',
+    );
     expect(screen.getByLabelText('Backlog column')).toBeInTheDocument();
     expect(screen.getByLabelText('Todo column')).toBeInTheDocument();
     expect(screen.getByLabelText('In Progress column')).toBeInTheDocument();

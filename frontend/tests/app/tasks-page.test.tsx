@@ -70,6 +70,12 @@ describe('TasksPage', () => {
     expect(screen.getByRole('button', { name: /new task/i })).toBeInTheDocument();
     expect(screen.getByText('Website redesign')).toBeInTheDocument();
     expect(testState.filters).toMatchObject({ projectId: 'p1' });
+    expect(screen.getByTestId('tasks-page')).toHaveClass(
+      'h-[calc(100dvh-7.5rem)]',
+      'min-h-0',
+      'overflow-hidden',
+      'md:h-dvh',
+    );
     expect(screen.getByText('Backlog')).toBeInTheDocument();
     expect(screen.getByText('In Progress')).toBeInTheDocument();
   });
