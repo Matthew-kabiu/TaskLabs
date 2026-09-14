@@ -31,6 +31,28 @@ const task = {
 };
 
 describe('TaskSidePanel', () => {
+  it('shows an existing description as content before opening its editor', () => {
+    render(
+      <TaskSidePanel
+        open
+        task={task}
+        members={[]}
+        labels={[]}
+        projects={[]}
+        onClose={() => {}}
+        onSave={async () => {}}
+        onDelete={async () => {}}
+      />,
+    );
+
+    expect(screen.getByText('desc')).toBeInTheDocument();
+    expect(screen.queryByRole('textbox', { name: 'Description' })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit description' }));
+
+    expect(screen.getByRole('textbox', { name: 'Description' })).toHaveValue('desc');
+  });
+
   it('renders task title and submits patch on save', async () => {
     const onSave = vi.fn().mockResolvedValue(undefined);
     render(

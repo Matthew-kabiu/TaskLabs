@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { format } from 'date-fns';
-import { Calendar as CalendarIcon, Check, FolderKanban, Loader2, Tag, Trash2, Users, X } from 'lucide-react';
+import { Calendar as CalendarIcon, Check, EyeOff, FolderKanban, Loader2, PencilLine, Tag, Trash2, Users } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -127,6 +127,7 @@ export function TaskSidePanel({
   const [projectId, setProjectId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [editingDescription, setEditingDescription] = useState(false);
 
   // Reset the form when the panel switches to a *different* task (or to create
   // mode), using React's documented "adjust state during render" pattern rather
@@ -153,6 +154,7 @@ export function TaskSidePanel({
       setDueDate(task.dueDate ? new Date(task.dueDate) : undefined);
       setIsPrivate(task.isPrivate);
       setProjectId(task.projectId);
+      setEditingDescription(false);
     } else {
       setTitle('');
       setDescription('');
@@ -161,6 +163,7 @@ export function TaskSidePanel({
       setDueDate(undefined);
       setIsPrivate(false);
       setProjectId(defaultProjectId);
+      setEditingDescription(true);
     }
   }
 
@@ -177,6 +180,14 @@ export function TaskSidePanel({
       isPrivate !== task.isPrivate ||
       projectId !== task.projectId
     : title.trim().length > 0;
+
+  const taskLabels = task?.labels ?? labels;
+  const taskAssignees = task?.assignees ?? [];
+
+  const handleClose = () => {
+    setEditingDescription(false);
+    onClose();
+  };
 
   const handleSave = async () => {
     setSaving(true);
@@ -204,15 +215,15 @@ export function TaskSidePanel({
           projectId: projectId ?? undefined,
         });
       }
-      onClose();
+      handleClose();
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <Dialog open={open} onOpenChange={(v) => (!v ? onClose() : undefined)}>
-      <DialogContent className="flex max-h-[88vh] max-w-2xl flex-col gap-4 overflow-hidden">
+    <Dialog open={open} onOpenChange={(v) => (!v ? handleClose() : undefined)}>
+      <DialogContent className="flex h-[min(90vh,860px)] w-[calc(100%-1.5rem)] max-w-5xl flex-col gap-0 overflow-hidden p-0">
         <span
           aria-hidden
           className={cn(
@@ -220,54 +231,99 @@ export function TaskSidePanel({
             STATUS_META[status].dot,
           )}
         />
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Dot className={STATUS_META[status].dot} />
-            {task ? 'Edit task' : 'Create task'}
-            {task ? (
-              <span className="ml-1 rounded bg-muted px-1.5 py-0.5 font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
-                #{task.number}
-              </span>
-            ) : null}
+        <DialogHeader className="border-b px-5 py-3 pr-14 sm:px-8">
+          <DialogTitle className="sr-only">
+            {task ? `Edit task ${task.number}` : 'Create task'}
           </DialogTitle>
-          <DialogDescription>
-            {task
-              ? `Created ${format(new Date(task.createdAt), 'PPP')}`
-              : 'Add the task details before creating it.'}
+          <DialogDescription className="flex min-w-0 items-center gap-2 text-xs">
+            <Dot className={STATUS_META[status].dot} />
+            <span className="font-medium text-foreground">
+              {task ? `Task #${task.number}` : 'New task'}
+            </span>
+            <span aria-hidden>·</span>
+            <span className="truncate">
+              {task
+                ? `Created ${format(new Date(task.createdAt), 'PPP')}`
+                : 'Add the task details before creating it'}
+            </span>
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex flex-col gap-4 overflow-y-auto pr-1">
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="task-title">Title</Label>
-            <Input
-              id="task-title"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-            />
-          </div>
+        <div className="grid min-h-0 flex-1 overflow-y-auto lg:grid-cols-[minmax(0,1fr)_18rem] lg:overflow-hidden">
+          <main className="min-w-0 space-y-7 px-5 py-6 sm:px-8 lg:overflow-y-auto">
+            <div>
+              <Label htmlFor="task-title" className="sr-only">Title</Label>
+              <Input
+                id="task-title"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="Task title"
+                className="h-auto border-0 bg-transparent px-0 py-1 text-2xl font-semibold leading-tight tracking-tight shadow-none focus-visible:ring-0 md:text-3xl"
+              />
+            </div>
 
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="task-desc">Description</Label>
-            <textarea
-              id="task-desc"
-              className="min-h-[120px] rounded-md border bg-background px-3 py-2 text-sm"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-            />
-          </div>
+            <section aria-labelledby="task-description-heading" className="space-y-3">
+              <div className="flex items-center justify-between gap-3">
+                <Label id="task-description-heading" htmlFor={editingDescription ? 'task-desc' : undefined} className="text-base font-semibold tracking-tight">
+                  Description
+                </Label>
+                {task ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 text-xs text-muted-foreground"
+                    onClick={() => setEditingDescription((current) => !current)}
+                    aria-expanded={editingDescription}
+                    aria-controls="task-description-content"
+                  >
+                    <PencilLine className="mr-1 h-3.5 w-3.5" />
+                    {editingDescription ? 'View description' : 'Edit description'}
+                  </Button>
+                ) : (
+                  <span className="text-[11px] text-muted-foreground">Plain text</span>
+                )}
+              </div>
+              <div id="task-description-content">
+                {editingDescription ? (
+                  <textarea
+                    id="task-desc"
+                    className="min-h-56 w-full resize-y rounded-md border border-border/70 bg-muted/20 px-4 py-3 text-sm leading-6 outline-none transition-colors placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/20"
+                    placeholder="Add context, requirements, or acceptance notes…"
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                  />
+                ) : description.trim() ? (
+                  <p className="whitespace-pre-wrap py-1 text-[15px] leading-7 text-foreground/90">{description}</p>
+                ) : (
+                  <button
+                    type="button"
+                    className="w-full rounded-md border border-dashed border-border/70 px-4 py-5 text-left text-sm text-muted-foreground transition-colors hover:bg-muted/30 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    onClick={() => setEditingDescription(true)}
+                  >
+                    Add a description…
+                  </button>
+                )}
+              </div>
+            </section>
 
-          {task ? (
-            <TaskComments taskId={task.id} workspaceId={workspaceId} members={members} />
-          ) : null}
+            {task ? (
+              <TaskComments taskId={task.id} workspaceId={workspaceId} members={members} />
+            ) : null}
+          </main>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="flex flex-col gap-2">
-              <Label>Status</Label>
+          <aside className="border-t bg-muted/20 px-5 py-5 lg:overflow-y-auto lg:border-l lg:border-t-0">
+            <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Properties
+            </h3>
+
+            <div className="divide-y divide-border/60">
+              <div className="grid grid-cols-[5.5rem_minmax(0,1fr)] items-center gap-3 py-2.5">
+                <Label className="text-xs text-muted-foreground">Status</Label>
               <Select value={status} onValueChange={(v) => setStatus(v as TaskDTO['status'])}>
                 <SelectTrigger
                   className={cn(
-                    'ring-1 ring-inset transition-colors',
+                    'h-8 border-0 bg-transparent px-2 text-xs shadow-none ring-1 ring-inset transition-colors',
                     STATUS_META[status].ring,
                   )}
                 >
@@ -289,11 +345,12 @@ export function TaskSidePanel({
                   ))}
                 </SelectContent>
               </Select>
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label>Priority</Label>
+              </div>
+
+              <div className="grid grid-cols-[5.5rem_minmax(0,1fr)] items-center gap-3 py-2.5">
+                <Label className="text-xs text-muted-foreground">Priority</Label>
               <Select value={priority} onValueChange={(v) => setPriority(v as TaskDTO['priority'])}>
-                <SelectTrigger>
+                <SelectTrigger className="h-8 border-0 bg-transparent px-2 text-xs shadow-none">
                   <SelectValue aria-label={priority}>
                     <span
                       className={cn(
@@ -317,153 +374,134 @@ export function TaskSidePanel({
                   ))}
                 </SelectContent>
               </Select>
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <Label>Due date</Label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button type="button" variant="outline" className="justify-start">
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {dueDate ? format(dueDate, 'PPP') : 'No due date'}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={dueDate}
-                  onSelect={(d) => setDueDate(d ?? undefined)}
-                  initialFocus
-                />
-                <div className="flex justify-end p-2">
-                  <Button type="button" variant="ghost" size="sm" onClick={() => setDueDate(undefined)}>
-                    Clear
-                  </Button>
-                </div>
-              </PopoverContent>
-            </Popover>
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <Label className="flex items-center gap-1.5">
-              <FolderKanban className="h-3.5 w-3.5 text-muted-foreground" />
-              Project
-            </Label>
-            <Select
-              value={projectId ?? '__none__'}
-              onValueChange={(v) => setProjectId(v === '__none__' ? null : v)}
-            >
-              <SelectTrigger>
-                <SelectValue aria-label={projectId ?? 'No project'}>
-                  {projectId
-                    ? (projects.find((p) => p.id === projectId)?.title ?? 'Project')
-                    : 'No project'}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__none__">No project</SelectItem>
-                {projects.map((project) => (
-                  <SelectItem key={project.id} value={project.id}>
-                    {project.title}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <Label className="flex items-center gap-1.5">
-              <Users className="h-3.5 w-3.5 text-muted-foreground" />
-              Assignees
-            </Label>
-            <div className="flex flex-wrap gap-1.5">
-              {members.length === 0 && (
-                <span className="text-xs text-muted-foreground">No members</span>
-              )}
-              {members.map((m) => {
-                const theme = avatarTheme(m.id);
-                return (
-                  <span
-                    key={m.id}
-                    className={cn(
-                      'group inline-flex items-center gap-2 rounded-full border py-1 pl-1 pr-3 text-xs transition-colors',
-                      'border-border bg-background',
-                    )}
-                  >
-                    <span
-                      className={cn(
-                        'flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-semibold',
-                        theme.bg,
-                        theme.text,
-                      )}
-                    >
-                      {userInitials(m.name, m.email)}
-                    </span>
-                    <span className="text-muted-foreground">
-                      {m.name ?? m.email}
-                    </span>
-                    <span
-                      aria-hidden
-                      className={cn(
-                        'h-2 w-2 shrink-0 rounded-full transition-colors',
-                        theme.dot,
-                      )}
-                    />
-                  </span>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <div className="flex items-center justify-between">
-              <Label className="flex items-center gap-1.5">
-                <Tag className="h-3.5 w-3.5 text-muted-foreground" />
-                Labels
-              </Label>
-            </div>
-
-            {/* Attached labels — only show what's actually on this task */}
-            {labels.length === 0 ? (
-              <span className="text-xs text-muted-foreground">
-                Labels are not available for this workspace yet.
-              </span>
-            ) : (
-              <div className="flex flex-wrap gap-1.5">
-                {labels
-                  .map((l) => (
-                    <span
-                      key={l.id}
-                      className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium shadow-sm transition-opacity hover:opacity-90"
-                      style={{
-                        backgroundColor: l.color,
-                        color: '#fff',
-                        borderColor: l.color,
-                      }}
-                    >
-                      {l.name}
-                    </span>
-                  ))}
               </div>
-            )}
-          </div>
 
-          <div className="flex items-center gap-2">
-            <Checkbox
-              id="task-private"
-              checked={isPrivate}
-              onCheckedChange={(v) => setIsPrivate(Boolean(v))}
-            />
-            <Label htmlFor="task-private">Private (only you can see this task)</Label>
-          </div>
+              <div className="grid grid-cols-[5.5rem_minmax(0,1fr)] items-center gap-3 py-2.5">
+                <Label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <CalendarIcon className="h-3.5 w-3.5" />
+                  Due date
+                </Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button type="button" variant="ghost" size="sm" className="h-8 justify-start px-2 text-xs font-normal">
+                      {dueDate ? format(dueDate, 'PP') : 'No due date'}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="end">
+                    <Calendar
+                      mode="single"
+                      selected={dueDate}
+                      onSelect={(d) => setDueDate(d ?? undefined)}
+                      initialFocus
+                    />
+                    <div className="flex justify-end p-2">
+                      <Button type="button" variant="ghost" size="sm" onClick={() => setDueDate(undefined)}>
+                        Clear
+                      </Button>
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+              <div className="grid grid-cols-[5.5rem_minmax(0,1fr)] items-center gap-3 py-2.5">
+                <Label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <FolderKanban className="h-3.5 w-3.5" />
+                  Project
+                </Label>
+                <Select
+                  value={projectId ?? '__none__'}
+                  onValueChange={(v) => setProjectId(v === '__none__' ? null : v)}
+                >
+                  <SelectTrigger className="h-8 border-0 bg-transparent px-2 text-xs shadow-none">
+                    <SelectValue aria-label={projectId ?? 'No project'}>
+                      {projectId
+                        ? (projects.find((p) => p.id === projectId)?.title ?? 'Project')
+                        : 'No project'}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">No project</SelectItem>
+                    {projects.map((project) => (
+                      <SelectItem key={project.id} value={project.id}>
+                        {project.title}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="grid grid-cols-[5.5rem_minmax(0,1fr)] items-start gap-3 py-3">
+                <Label className="flex items-center gap-1.5 pt-1 text-xs text-muted-foreground">
+                  <Users className="h-3.5 w-3.5" />
+                  Assignees
+                </Label>
+                <div className="flex min-w-0 flex-wrap gap-1.5">
+                  {taskAssignees.length === 0 ? (
+                    <span className="px-2 py-1 text-xs text-muted-foreground">Unassigned</span>
+                  ) : (
+                    taskAssignees.map((assignee) => {
+                      const theme = avatarTheme(assignee.userId);
+                      return (
+                        <span key={assignee.id} className="inline-flex max-w-full items-center gap-1.5 rounded-full border bg-background py-0.5 pl-0.5 pr-2 text-xs">
+                          <span className={cn('flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[9px] font-semibold', theme.bg, theme.text)}>
+                            {userInitials(assignee.name, assignee.email ?? '')}
+                          </span>
+                          <span className="truncate">{assignee.name ?? assignee.email ?? 'Unknown'}</span>
+                        </span>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-[5.5rem_minmax(0,1fr)] items-start gap-3 py-3">
+                <Label className="flex items-center gap-1.5 pt-1 text-xs text-muted-foreground">
+                  <Tag className="h-3.5 w-3.5" />
+                  Labels
+                </Label>
+                <div className="flex min-w-0 flex-wrap gap-1.5">
+                  {taskLabels.length === 0 ? (
+                    <span className="px-2 py-1 text-xs text-muted-foreground">No labels</span>
+                  ) : (
+                    taskLabels.map((label) => (
+                      <span
+                        key={label.id}
+                        className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-border bg-background px-2 py-1 text-xs"
+                      >
+                        <span aria-hidden className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: label.color }} />
+                        <span className="truncate">{label.name}</span>
+                      </span>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-[5.5rem_minmax(0,1fr)] items-center gap-3 py-3">
+                <Label htmlFor="task-private" className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <EyeOff className="h-3.5 w-3.5" />
+                  Private
+                </Label>
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="task-private"
+                    checked={isPrivate}
+                    onCheckedChange={(v) => setIsPrivate(Boolean(v))}
+                  />
+                  <Label htmlFor="task-private" className="text-xs font-normal">
+                    Only me
+                  </Label>
+                </div>
+              </div>
+            </div>
+          </aside>
         </div>
 
-        <div className="mt-auto flex items-center justify-between gap-2 pt-2">
+        <div className="flex items-center justify-between gap-2 border-t bg-background px-5 py-3 sm:px-8">
           {task ? (
             <Button
               type="button"
               variant="ghost"
+              size="sm"
               className="text-rose-500 hover:bg-rose-500/10 hover:text-rose-500"
               onClick={() => setDeleteOpen(true)}
             >
@@ -473,11 +511,12 @@ export function TaskSidePanel({
             <span />
           )}
           <div className="flex gap-2">
-            <Button type="button" variant="outline" onClick={onClose}>
-              <X className="mr-1.5 h-4 w-4" /> Cancel
+            <Button type="button" variant="ghost" size="sm" onClick={handleClose}>
+              Cancel
             </Button>
             <Button
               type="button"
+              size="sm"
               onClick={handleSave}
               disabled={saving || !title.trim() || !isDirty}
               className={cn(isDirty && !saving && 'ring-2 ring-emerald-500/40')}
@@ -502,7 +541,7 @@ export function TaskSidePanel({
             taskTitle={task.title}
             onConfirm={async () => {
               await onDelete(task.id);
-              onClose();
+              handleClose();
             }}
           />
         ) : null}
