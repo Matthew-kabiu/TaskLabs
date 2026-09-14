@@ -295,7 +295,12 @@ export async function createTaskForActor(
   if (!membershipProven) {
     await requireMembershipForUser(ctx, workspaceId, userId);
   }
-  const assigneeIds = await validateAssignees(ctx, workspaceId, input.assigneeIds);
+  const assigneeIds =
+    (await validateAssignees(
+      ctx,
+      workspaceId,
+      input.assigneeIds?.length ? input.assigneeIds : [userId],
+    )) ?? [userId];
   const labelIds = await validateLabels(ctx, workspaceId, input.labelIds);
   const projectId = await validateProjectId(ctx, workspaceId, input.projectId);
 
@@ -326,15 +331,13 @@ export async function createTaskForActor(
   if (task === null) {
     throw new Error("Task not found after create");
   }
-  if (assigneeIds !== undefined) {
-    await replaceAssignees(ctx, {
-      workspaceId,
-      taskId,
-      assigneeIds,
-      actorId: userId,
-      taskTitle: task.title,
-    });
-  }
+  await replaceAssignees(ctx, {
+    workspaceId,
+    taskId,
+    assigneeIds,
+    actorId: userId,
+    taskTitle: task.title,
+  });
   if (labelIds !== undefined) {
     await replaceLabels(ctx, { workspaceId, taskId, labelIds });
   }

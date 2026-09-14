@@ -70,6 +70,46 @@ describe("workspaces and tasks MVP", () => {
     expect(workspaces).toHaveLength(1);
   });
 
+  test("new tasks default to the creator unless assignees are provided", async () => {
+    const t = convexTest(schema, modules);
+    const ownerId = await seedUser(t, {
+      email: "owner@example.com",
+      name: "Owner",
+    });
+    const memberId = await seedUser(t, {
+      email: "member@example.com",
+      name: "Member",
+    });
+    const asOwner = t.withIdentity({
+      subject: ownerId,
+      email: "owner@example.com",
+    });
+    const workspace = requireValue(
+      await asOwner.mutation(api.workspaces.ensurePersonal, { name: "Team" }),
+      "workspace",
+    );
+    await addWorkspaceMember(t, { workspaceId: workspace.id, userId: memberId });
+
+    const defaultedWhenOmitted = await asOwner.mutation(api.tasks.create, {
+      workspaceId: workspace.id,
+      title: "Defaults to me when omitted",
+    });
+    const defaultedWhenEmpty = await asOwner.mutation(api.tasks.create, {
+      workspaceId: workspace.id,
+      title: "Defaults to me when empty",
+      assigneeIds: [],
+    });
+    const assignedToMember = await asOwner.mutation(api.tasks.create, {
+      workspaceId: workspace.id,
+      title: "Assigned deliberately",
+      assigneeIds: [memberId],
+    });
+
+    expect(defaultedWhenOmitted.assignees).toMatchObject([{ userId: ownerId }]);
+    expect(defaultedWhenEmpty.assignees).toMatchObject([{ userId: ownerId }]);
+    expect(assignedToMember.assignees).toMatchObject([{ userId: memberId }]);
+  });
+
   test("private tasks are only visible to their creator inside a shared workspace", async () => {
     const t = convexTest(schema, modules);
     const ownerId = await seedUser(t, {
