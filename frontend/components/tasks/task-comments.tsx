@@ -44,8 +44,10 @@ function memberMeta(members: CommentMemberDTO[], authorId: string) {
 
 export function TaskComments({ taskId, workspaceId, members }: Props) {
   const [body, setBody] = React.useState('');
+  const [composing, setComposing] = React.useState(false);
   const [editingId, setEditingId] = React.useState<string | null>(null);
   const [editBody, setEditBody] = React.useState('');
+  const [activeTaskId, setActiveTaskId] = React.useState(taskId);
   const { data: comments, isLoading } = useTaskComments(taskId, workspaceId);
   const addComment = useAddTaskComment(workspaceId);
   const updateComment = useUpdateTaskComment(workspaceId);
@@ -54,11 +56,20 @@ export function TaskComments({ taskId, workspaceId, members }: Props) {
     | { id: string }
     | undefined;
 
+  if (activeTaskId !== taskId) {
+    setActiveTaskId(taskId);
+    setBody('');
+    setComposing(false);
+    setEditingId(null);
+    setEditBody('');
+  }
+
   const handlePost = async () => {
     if (body.trim().length < 1) return;
     try {
       await addComment.mutateAsync({ taskId, input: { body } });
       setBody('');
+      setComposing(false);
     } catch (err) {
       toast.error((err as Error).message);
     }
@@ -186,43 +197,70 @@ export function TaskComments({ taskId, workspaceId, members }: Props) {
   };
 
   return (
-    <div className="flex flex-col gap-3 rounded-md border border-border/60">
-      <div className="flex items-center gap-2 border-b border-border/60 px-4 py-2.5 text-sm font-medium">
-        <MessageSquarePlus className="h-4 w-4 text-muted-foreground" />
-        Comments
-        {comments?.length ? (
-          <span className="text-xs font-normal text-muted-foreground">
-            ({comments.length})
-          </span>
-        ) : null}
+    <div className="flex flex-col rounded-md border border-border/60">
+      <div className="flex items-center justify-between gap-3 border-b border-border/60 px-4 py-2.5">
+        <div className="flex items-center gap-2 text-base font-semibold tracking-tight">
+          <MessageSquarePlus className="h-4 w-4 text-muted-foreground" />
+          Comments
+          {comments?.length ? (
+            <span className="text-xs font-normal text-muted-foreground">
+              ({comments.length})
+            </span>
+          ) : null}
+        </div>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="h-7 px-2 text-xs"
+          onClick={() => setComposing((current) => !current)}
+          aria-expanded={composing}
+          aria-controls="task-comment-composer"
+        >
+          <MessageSquarePlus className="mr-1 h-3.5 w-3.5" />
+          {composing ? 'Hide composer' : 'Comment'}
+        </Button>
       </div>
 
-      <div className="px-4 pb-1">
-        <MarkdownEditor
-          ariaLabel="Write a task comment"
-          placeholder="Add an implementation note, decision, or status update…"
-          value={body}
-          onChange={setBody}
-        />
-        <div className="mt-2 flex justify-end">
-          <Button
-            type="button"
-            size="sm"
-            onClick={handlePost}
-            disabled={addComment.isPending || body.trim().length < 1}
-          >
-            {addComment.isPending ? (
-              <>
-                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> Posting…
-              </>
-            ) : (
-              <>
-                <Send className="mr-1.5 h-3.5 w-3.5" /> Comment
-              </>
-            )}
-          </Button>
+      {composing ? (
+        <div id="task-comment-composer" className="p-4">
+          <MarkdownEditor
+            ariaLabel="Write a task comment"
+            placeholder="Add an implementation note, decision, or status update…"
+            value={body}
+            onChange={setBody}
+          />
+          <div className="mt-2 flex justify-end gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setBody('');
+                setComposing(false);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              onClick={handlePost}
+              disabled={addComment.isPending || body.trim().length < 1}
+            >
+              {addComment.isPending ? (
+                <>
+                  <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> Posting…
+                </>
+              ) : (
+                <>
+                  <Send className="mr-1.5 h-3.5 w-3.5" /> Comment
+                </>
+              )}
+            </Button>
+          </div>
         </div>
-      </div>
+      ) : null}
 
       <div className="flex max-h-72 flex-col divide-y divide-border/60 overflow-y-auto border-t border-border/60">
         {isLoading ? (
