@@ -84,7 +84,11 @@ export const MCP_TOOLS = [
         dueDate: { oneOf: [textSchema, { type: 'number' }] },
         isPrivate: { type: 'boolean' },
         position: { type: 'number' },
-        assigneeIds: { type: 'array', items: idSchema },
+        assigneeIds: {
+          type: 'array',
+          items: idSchema,
+          description: 'Defaults to the API key owner when omitted or empty.',
+        },
         labelIds: { type: 'array', items: idSchema },
         projectId: idSchema,
       },

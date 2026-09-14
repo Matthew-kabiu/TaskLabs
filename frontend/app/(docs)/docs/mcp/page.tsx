@@ -148,6 +148,13 @@ export default function DocsMcpPage() {
         project updates.
       </DocsP>
       <DocsP>
+        New tasks default to the authenticated creator when{' '}
+        <DocsInlineCode>assigneeIds</DocsInlineCode> is omitted or empty. A
+        non-empty list assigns those workspace members instead; an empty list on{' '}
+        <DocsInlineCode>tasks.update</DocsInlineCode> deliberately unassigns an
+        existing task.
+      </DocsP>
+      <DocsP>
         <DocsInlineCode>tasks.create</DocsInlineCode> requires a caller-generated{' '}
         <DocsInlineCode>idempotencyKey</DocsInlineCode>. Retrying the same input
         with the same key returns the existing task; reusing a key with different
