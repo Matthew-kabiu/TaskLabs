@@ -28,6 +28,7 @@ import type { TaskListFilters } from '@/hooks/useTasks';
 // Module-level constant so the default never produces a fresh array identity,
 // which would invalidate the useMemo below on every render.
 const NO_TASKS: never[] = [];
+// Keep button navigation aligned with the fixed w-72 columns and gap-4 spacing.
 const COLUMN_SCROLL_DISTANCE = 304;
 
 export function KanbanBoard({
