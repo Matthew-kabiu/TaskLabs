@@ -272,7 +272,7 @@ export function IcePanel({ onClose }: { onClose: () => void }) {
   };
 
   useEffect(() => {
-    if (!autoIndexed.current && status && status.pendingCount > 0) {
+    if (!autoIndexed.current && status && (status.pendingCount > 0 || status.completeCount === 0)) {
       autoIndexed.current = true;
       void runIndex()
         .then((result) => {

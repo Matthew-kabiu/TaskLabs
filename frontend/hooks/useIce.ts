@@ -323,10 +323,27 @@ export function useIceIndexing() {
     if (!activeWorkspaceId) throw new Error('No active workspace');
     setIsIndexing(true);
     try {
-      const result = (await postIce({
-        action: 'index',
-        workspaceId: activeWorkspaceId,
-      })) as IceIndexResponse;
+      const result: IceIndexResponse = {
+        processed: 0,
+        indexed: 0,
+        skipped: 0,
+        failed: 0,
+        pendingLeft: 0,
+        errors: [],
+      };
+      for (let batch = 0; batch < 20; batch++) {
+        const current = (await postIce({
+          action: 'index',
+          workspaceId: activeWorkspaceId,
+        })) as IceIndexResponse;
+        result.processed += current.processed;
+        result.indexed += current.indexed;
+        result.skipped += current.skipped;
+        result.failed += current.failed;
+        result.pendingLeft = current.pendingLeft;
+        result.errors.push(...current.errors);
+        if (current.pendingLeft === 0 || current.processed === 0) break;
+      }
       setIndexResult(result);
       return result;
     } finally {
