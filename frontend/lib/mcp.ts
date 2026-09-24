@@ -463,12 +463,11 @@ export const MCP_TOOLS = [
   {
     name: 'rag.query',
     description:
-      'Retrieve tenant-filtered Ice sources for a question. Returns ranked chunks with stable citation anchors. The route embeds the question locally; no vector input needed.',
+      "Retrieve Ice sources for a question from the API key owner's personal index (current and earlier retained versions), using their saved embedding model. Returns ranked chunks with stable citation anchors plus linked neighbour records. No vector input needed.",
     inputSchema: objectSchema(
       {
         q: textSchema,
         topK: { type: 'number' },
-        minScore: { type: 'number' },
       },
       ['q'],
     ),
@@ -476,24 +475,23 @@ export const MCP_TOOLS = [
   {
     name: 'rag.ask',
     description:
-      'Ask Ice: retrieval plus a local extractive grounded answer with citations. No external model is called.',
+      "Ask Ice: retrieval from the API key owner's personal index plus a local extractive grounded answer with citations. No chat model is called.",
     inputSchema: objectSchema(
       {
         q: textSchema,
         topK: { type: 'number' },
-        minScore: { type: 'number' },
       },
       ['q'],
     ),
   },
   {
     name: 'rag.status',
-    description: 'Read Ice index status for the API key workspace.',
+    description: "Read the API key owner's Ice index status in the key workspace, including pending and failed counts and the last run error.",
     inputSchema: objectSchema({}),
   },
   {
     name: 'rag.reindex',
-    description: 'Flag every indexed source for reindexing. Workspace ADMIN or OWNER only.',
+    description: "Start a fresh Ice index for the API key owner. The previous index stays searchable; the new one is built the next time the owner opens Ice.",
     inputSchema: objectSchema({}),
   },
   {

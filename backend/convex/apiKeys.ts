@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { action, internalMutation, mutation, query } from "./_generated/server";
+import { action, internalMutation, mutation, query, type ActionCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
 import { apiKeyScope } from "./lib/validators";
@@ -52,11 +52,12 @@ import {
   removeTaskCommentForActor,
   updateTaskCommentForActor,
 } from "./taskComments/service";
-import {
-  ragStatusForActor,
-  reindexWorkspaceForActor,
-} from "./rag/service";
+import { personalStatus, reindexPersonal } from "./rag/personal";
 import { RAG_EMBEDDING_DIMENSIONS } from "./rag/providers";
+import { buildExtractiveAnswer } from "./rag/answer";
+import { embedRemote } from "./rag/remoteEmbedding";
+import { searchNamespaces, type NamespaceSearch } from "./iceIndex";
+import { tasklabsRateLimiter } from "./lib/rateLimits";
 import {
   getWorkspaceForActor,
   listMembersForActor,
@@ -825,9 +826,10 @@ export const mcpDispatchMutation = internalMutation({
       case "rag.ask":
         throw new Error("RAG tools must run through the action dispatcher");
       case "rag.status":
-        return await ragStatusForActor(ctx, actor.workspaceId, actor.userId, true);
+        return await personalStatus(ctx, actor.workspaceId, actor.userId);
       case "rag.reindex":
-        return await reindexWorkspaceForActor(ctx, actor.workspaceId, actor.userId);
+        // Starts a fresh personal index for the key owner; the Ice panel builds it.
+        return await reindexPersonal(ctx, actor.workspaceId, actor.userId);
       case "profile.get":
         return await userDto(ctx, actor.userId);
       case "profile.update": {
@@ -877,6 +879,49 @@ export const mcpDispatchMutation = internalMutation({
   },
 });
 
+/**
+ * Query vectors for the key owner's current and retained index namespaces.
+ * Local vectors come from the MCP route (Convex cannot load ONNX); hosted
+ * providers are called here with the owner's saved key, which never leaves
+ * the backend. A retained namespace that cannot be embedded is skipped.
+ */
+async function mcpSearches(
+  ctx: ActionCtx,
+  workspaceId: Id<"workspaces">,
+  userId: Id<"users">,
+  question: string,
+  input: Record<string, unknown>,
+): Promise<NamespaceSearch[]> {
+  const config = await ctx.runQuery(internalApi.iceIndex.authorize, { workspaceId, userId });
+  const spaces: { namespace: string; provider: "local" | "openai" | "gemini" | "openrouter"; model: string }[] = [
+    { namespace: config.namespace, provider: config.provider, model: config.model },
+    ...config.retained,
+  ];
+  const vectors = new Map<string, number[]>();
+  const searches: NamespaceSearch[] = [];
+  for (const space of spaces) {
+    const modelKey = `${space.provider}:${space.model}`;
+    let vector = vectors.get(modelKey);
+    if (!vector) {
+      try {
+        if (space.provider === "local") {
+          vector = queryVectorArg(input);
+        } else {
+          const key: string | null = await ctx.runQuery(internalApi.iceKeys.keyForActor, { workspaceId, userId, provider: space.provider });
+          if (!key) throw new Error(`Save your ${space.provider} API key in Ice settings first`);
+          [vector] = await embedRemote(space.provider, space.model, [question], "query", key);
+        }
+      } catch (error) {
+        if (space.namespace === config.namespace) throw error;
+        continue;
+      }
+      vectors.set(modelKey, vector);
+    }
+    searches.push({ namespace: space.namespace, vector });
+  }
+  return searches;
+}
+
 export const mcpDispatch = action({
   args: {
     token: v.string(),
@@ -892,20 +937,20 @@ export const mcpDispatch = action({
       assertRequiredScopes(actor.scopes, requiredScopesForTool(args.toolName));
       const input = record(args.input);
       optionalWorkspaceCheck(actor, input);
-      const actionArgs = {
+      const question = stringArg(input, "q").trim();
+      if (question.length < 1 || question.length > 2000) throw new Error("q is required (1-2000 characters)");
+      await tasklabsRateLimiter.limit(ctx, "ragQuery", { key: actor.userId, throws: true });
+      const searches = await mcpSearches(ctx, actor.workspaceId, actor.userId, question, input);
+      const retrieval = await searchNamespaces(ctx, {
         workspaceId: actor.workspaceId,
         userId: actor.userId,
-        vector: queryVectorArg(input),
+        text: question,
+        searches,
         topK: optionalNumber(input, "topK"),
-        minScore: optionalNumber(input, "minScore"),
-      };
-      if (args.toolName === "rag.query") {
-        return await ctx.runAction(internalApi.rag.retrieveForActor, actionArgs);
-      }
-      return await ctx.runAction(internalApi.rag.askForActor, {
-        ...actionArgs,
-        question: stringArg(input, "q"),
       });
+      if (args.toolName === "rag.query") return retrieval;
+      const generated = buildExtractiveAnswer({ question, context: retrieval.results });
+      return { ...retrieval, answer: generated.answer, citations: generated.citations };
     }
     if (args.toolName !== "telegram.test") {
       return await ctx.runMutation(internalApi.apiKeys.mcpDispatchMutation, args);

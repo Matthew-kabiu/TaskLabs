@@ -8,8 +8,8 @@
  */
 
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
-import { requireMembership } from "./lib/auth";
+import { internalQuery, mutation, query } from "./_generated/server";
+import { requireMembership, requireMembershipForUser } from "./lib/auth";
 import { decryptIceProviderKey, encryptIceProviderKey } from "./iceKeys/crypto";
 import {
   assertValidIceKeyProvider,
@@ -51,6 +51,18 @@ export const keyForWorker = query({
       userId,
       args.provider,
     );
+    if (stored === null) return null;
+    return await decryptIceProviderKey(stored.encryptedKey);
+  },
+});
+
+/** Decrypted key for backend-only use (MCP search embeds inside Convex). Never returned over MCP. */
+export const keyForActor = internalQuery({
+  args: { workspaceId: workspaceIdArg, userId: v.id("users"), provider: providerArg },
+  handler: async (ctx, args) => {
+    await requireMembershipForUser(ctx, args.workspaceId, args.userId);
+    assertValidIceKeyProvider(args.provider);
+    const stored = await getStoredKey(ctx, args.workspaceId, args.userId, args.provider);
     if (stored === null) return null;
     return await decryptIceProviderKey(stored.encryptedKey);
   },

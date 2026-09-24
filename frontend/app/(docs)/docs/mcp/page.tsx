@@ -202,12 +202,14 @@ export default function DocsMcpPage() {
       <DocsP>
         Ice tools (<DocsInlineCode>rag.query</DocsInlineCode>,{' '}
         <DocsInlineCode>rag.ask</DocsInlineCode>, <DocsInlineCode>rag.status</DocsInlineCode>)
-        retrieve tenant-filtered workspace sources with stable citation anchors.
+        search the API key owner&apos;s personal Ice index with their saved
+        embedding model and return sources with stable citation anchors.
         Private tasks and events are enforced at retrieval, and empty evidence
         returns an explicit not-found instead of a generated answer.{' '}
         <DocsInlineCode>rag.ask</DocsInlineCode> returns a local extractive
-        answer — no external model is called over MCP. <DocsInlineCode>rag.reindex</DocsInlineCode>{' '}
-        requires a workspace ADMIN or OWNER.
+        answer — no chat model is called over MCP. <DocsInlineCode>rag.reindex</DocsInlineCode>{' '}
+        starts a fresh index for the key owner and keeps the previous one
+        searchable; it is built the next time they open Ice.
       </DocsP>
 
       <DocsH2 id="clients">Configuring MCP clients</DocsH2>
