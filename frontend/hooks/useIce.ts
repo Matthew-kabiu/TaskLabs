@@ -28,8 +28,15 @@ export type IceStatus = {
   completeCount: number;
   failedCount: number;
   chunkCount: number;
-  updatedAt: string | null;
+  /** True when more pending sources exist than the status scan counts. */
+  pendingCapped: boolean;
+  /** Earlier index versions still searched alongside the current one. */
+  retainedCount: number;
+  updatedAt: number | null;
   recentErrors: IceStatusError[];
+  /** Why the last index run stopped early, e.g. a rate limit or missing key. */
+  lastRunError: string | null;
+  lastRunAt: number | null;
 };
 
 type IceState =
@@ -86,10 +93,18 @@ export function useIceConversation() {
     isClearing, send, clearMemory };
 }
 
-/** Fire-and-forget index trigger after product mutations. Never throws —
- * indexing is best-effort here; status and sweep cover the rest. */
+const TRIGGER_DEBOUNCE_MS = 3000;
+const pendingTriggers = new Map<string, ReturnType<typeof setTimeout>>();
+
+/** Index trigger after product mutations, debounced per workspace so a burst
+ * of edits costs one run. Never throws here: the server records run errors
+ * and the Ice status shows them. */
 export function triggerIceIndex(workspaceId: string): void {
-  void postIce({ action: 'index', workspaceId }).catch(() => undefined);
+  clearTimeout(pendingTriggers.get(workspaceId));
+  pendingTriggers.set(workspaceId, setTimeout(() => {
+    pendingTriggers.delete(workspaceId);
+    void postIce({ action: 'index', workspaceId }).catch(() => undefined);
+  }, TRIGGER_DEBOUNCE_MS));
 }
 
 export function useIceStatus() {
@@ -256,6 +271,7 @@ export function useIceProviderKeys() {
 export type IcePreferences = {
   chatProvider: IceChatProvider;
   chatModel: string;
+  systemPrompt: string;
   updatedAt: number;
   embedding: { provider: import('@/lib/rag/providers').IceEmbeddingProvider; model: string; revision: number; namespace: string };
 } | null;
@@ -267,6 +283,15 @@ export function useIcePreferences() {
     activeWorkspaceId ? { workspaceId: activeWorkspaceId as Id<'workspaces'> } : 'skip',
   ) as unknown as IcePreferences | undefined;
   const saveMutation = usePendingMutation(useConvexMutation(BACKEND_ROUTES.icePreferences.save));
+  const promptMutation = usePendingMutation(useConvexMutation(BACKEND_ROUTES.icePreferences.saveSystemPrompt));
+
+  const saveSystemPrompt = useCallback(
+    async (prompt: string) => {
+      if (!activeWorkspaceId) throw new Error('No active workspace');
+      await promptMutation.mutateAsync({ workspaceId: activeWorkspaceId as Id<'workspaces'>, prompt });
+    },
+    [activeWorkspaceId, promptMutation],
+  );
 
   const savePreferences = useCallback(
     async (chatProvider: IceChatProvider, chatModel: string) => {
@@ -286,6 +311,8 @@ export function useIcePreferences() {
     isPrefsLoading: Boolean(activeWorkspaceId) && prefs === undefined,
     savePreferences,
     isSavingPreferences: saveMutation.isPending,
+    saveSystemPrompt,
+    isSavingSystemPrompt: promptMutation.isPending,
   };
 }
 
@@ -314,27 +341,32 @@ export function useIceModels() {
   return { loadModels, isLoading };
 }
 
+const MAX_INDEX_REQUESTS = 50;
+
 export function useIceIndexing() {
   const { activeWorkspaceId } = useWorkspaces();
   const [indexResult, setIndexResult] = useState<IceIndexResponse | null>(null);
   const [isIndexing, setIsIndexing] = useState(false);
 
-  const runIndex = useCallback(async () => {
+  const runIndex = useCallback(async (options: { retryFailed?: boolean } = {}) => {
     if (!activeWorkspaceId) throw new Error('No active workspace');
     setIsIndexing(true);
+    const result: IceIndexResponse = {
+      processed: 0,
+      indexed: 0,
+      skipped: 0,
+      failed: 0,
+      pendingLeft: 0,
+      errors: [],
+    };
     try {
-      const result: IceIndexResponse = {
-        processed: 0,
-        indexed: 0,
-        skipped: 0,
-        failed: 0,
-        pendingLeft: 0,
-        errors: [],
-      };
-      for (let batch = 0; batch < 20; batch++) {
+      // Each request indexes for a bounded time; keep going until the queue
+      // is empty or a request makes no progress.
+      for (let request = 0; request < MAX_INDEX_REQUESTS; request++) {
         const current = (await postIce({
           action: 'index',
           workspaceId: activeWorkspaceId,
+          ...(request === 0 && options.retryFailed ? { retryFailed: true } : {}),
         })) as IceIndexResponse;
         result.processed += current.processed;
         result.indexed += current.indexed;
@@ -344,28 +376,13 @@ export function useIceIndexing() {
         result.errors.push(...current.errors);
         if (current.pendingLeft === 0 || current.processed === 0) break;
       }
-      setIndexResult(result);
       return result;
     } finally {
+      // Partial progress stays visible even when a request throws.
+      setIndexResult(result);
       setIsIndexing(false);
     }
   }, [activeWorkspaceId]);
-
-  const requestDocs = usePendingMutation(
-    useConvexMutation(BACKEND_ROUTES.rag.requestIndex),
-  );
-  const indexDocs = useCallback(async () => {
-    if (!activeWorkspaceId) throw new Error('No active workspace');
-    const { ICE_DOCS_ALLOWLIST, docsSourceId } = await import('@/lib/rag/docs');
-    for (const filename of ICE_DOCS_ALLOWLIST) {
-      await requestDocs.mutateAsync({
-        workspaceId: activeWorkspaceId as Id<'workspaces'>,
-        sourceType: 'docs',
-        sourceId: docsSourceId(filename),
-      });
-    }
-    return runIndex();
-  }, [activeWorkspaceId, requestDocs, runIndex]);
 
   const reindex = usePendingMutation(useConvexMutation(BACKEND_ROUTES.iceIndex.reindex));
   const reindexAll = useCallback(async () => {
@@ -377,9 +394,7 @@ export function useIceIndexing() {
   return {
     indexResult,
     isIndexing,
-    isDocsPending: requestDocs.isPending,
     runIndex,
-    indexDocs,
     reindexAll,
     isReindexPending: reindex.isPending,
   };

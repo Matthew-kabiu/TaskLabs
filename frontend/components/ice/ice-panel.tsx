@@ -231,7 +231,7 @@ export function IcePanel({ onClose }: { onClose: () => void }) {
       role: 'ice',
       question: '',
       answer:
-        "Hi, I'm Ice. Ask me about your tasks, comments, projects, events, or product docs. I'll answer from this workspace and include the sources I used.",
+        "Hi, I'm Ice. Ask me about your tasks, comments, projects, and events. I'll answer from this workspace and include the sources I used.",
       citations: [],
       empty: false,
       error: null,
@@ -282,7 +282,9 @@ export function IcePanel({ onClose }: { onClose: () => void }) {
             );
           }
         })
-        .catch(() => undefined);
+        .catch((error: unknown) =>
+          toast.error(error instanceof Error ? `Ice indexing stopped: ${error.message}` : 'Ice indexing stopped'),
+        );
     }
   }, [status, runIndex]);
 

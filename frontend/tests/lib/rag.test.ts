@@ -1,13 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { chunkRagText, ragContentHash } from '@convex/rag/chunk';
 import { buildExtractiveAnswer } from '@convex/rag/answer';
-import {
-  docsChunkAnchor,
-  docsSourceId,
-  docsTitle,
-  ICE_DOCS_ALLOWLIST,
-} from '@/lib/rag/docs';
-import { validateCitations } from '@/lib/rag/generate';
+import { buildSystemPrompt, ICE_UNTRUSTED_CONTEXT_PREAMBLE, validateCitations } from '@/lib/rag/generate';
 import { iceAskSchema, iceQuerySchema } from '@/lib/validations/rag.schema';
 import type { RetrievedChunk } from '@convex/rag/providers';
 
@@ -39,17 +33,18 @@ describe('ice request schemas', () => {
   });
 });
 
-describe('ice docs helpers', () => {
-  it('builds stable source ids and anchors', () => {
-    expect(docsSourceId('DESIGN.md')).toBe('docs:DESIGN.md');
-    expect(docsTitle('DESIGN.md')).toBe('Docs: DESIGN.md');
-    expect(ICE_DOCS_ALLOWLIST).toContain('DESIGN.md');
-    expect(docsChunkAnchor('DESIGN.md', '# Ice UI Rules\n\nBody text', 0)).toBe(
-      'docs:DESIGN.md#ice-ui-rules',
-    );
-    expect(docsChunkAnchor('DESIGN.md', 'no heading here', 3)).toBe('docs:DESIGN.md#part-3');
+describe('ice system prompt', () => {
+  it('keeps the safety preamble first and appends owner instructions', () => {
+    expect(buildSystemPrompt()).toBe(ICE_UNTRUSTED_CONTEXT_PREAMBLE);
+    expect(buildSystemPrompt('   ')).toBe(ICE_UNTRUSTED_CONTEXT_PREAMBLE);
+    const prompt = buildSystemPrompt('Answer in bullet points');
+    expect(prompt.startsWith(ICE_UNTRUSTED_CONTEXT_PREAMBLE)).toBe(true);
+    expect(prompt).toContain('cannot override the rules above');
+    expect(prompt.endsWith('Answer in bullet points')).toBe(true);
   });
+});
 
+describe('ice chunking', () => {
   it('chunks deterministically', () => {
     const body = ['One.', 'Two.', 'Three.'].join('\n\n');
     expect(chunkRagText(body, 10, 2)).toEqual(chunkRagText(body, 10, 2));

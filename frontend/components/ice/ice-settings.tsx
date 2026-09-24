@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Bot,
-  FileText,
   KeyRound,
   Loader2,
   RefreshCw,
@@ -27,6 +26,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { PasswordInput } from '@/components/ui/password-input';
 import { IceEmbeddingSettings } from './ice-embedding-settings';
+import { IceSystemPrompt } from './ice-system-prompt';
 import {
   Popover,
   PopoverContent,
@@ -98,9 +98,7 @@ export function IceSettings({
   const {
     indexResult,
     isIndexing,
-    isDocsPending,
     runIndex,
-    indexDocs,
     reindexAll,
     isReindexPending,
   } = useIceIndexing();
@@ -133,7 +131,8 @@ export function IceSettings({
   }
 
   const handleIndex = () => {
-    void runIndex()
+    // An explicit run also retries sources that failed before.
+    void runIndex({ retryFailed: true })
       .then((result) => {
         if (result.failed > 0) {
           toast.error(
@@ -145,20 +144,6 @@ export function IceSettings({
       })
       .catch((error: unknown) =>
         toast.error(error instanceof Error ? error.message : 'Index run failed'),
-      );
-  };
-
-  const handleDocsIndex = () => {
-    void indexDocs()
-      .then((result) =>
-        result.failed > 0
-          ? toast.error(
-              `Docs indexing: ${result.failed} failed${result.errors[0] ? ` - ${result.errors[0].error}` : ''}`,
-            )
-          : toast.success(`Docs indexed (${result.indexed} updated)`),
-      )
-      .catch((error: unknown) =>
-        toast.error(error instanceof Error ? error.message : 'Docs indexing failed'),
       );
   };
 
@@ -475,6 +460,8 @@ export function IceSettings({
             {isSavingModel ? 'Saving model…' : 'Save model'}
           </Button>
 
+          <IceSystemPrompt />
+
           <section className="flex flex-col gap-2 border-t border-border pt-4" aria-labelledby="ice-index-heading">
             <div className="flex items-center gap-2">
               <RefreshCw className="size-4 text-muted-foreground" />
@@ -489,7 +476,7 @@ export function IceSettings({
                   {status.failedCount > 0
                     ? `${status.failedCount} failed`
                     : status.pendingCount > 0
-                      ? `${status.pendingCount} pending`
+                      ? `${status.pendingCount}${status.pendingCapped ? '+' : ''} pending`
                       : 'Ready'}
                 </Badge>
               )}
@@ -499,6 +486,7 @@ export function IceSettings({
             ) : (
               <p className="font-mono text-xs text-muted-foreground">
                 {status.completeCount} sources · {status.chunkCount} chunks · v{status.indexVersion}
+                {status.retainedCount > 0 ? ` · +${status.retainedCount} earlier` : ''}
               </p>
             )}
             <div className="flex items-center gap-1">
@@ -507,27 +495,11 @@ export function IceSettings({
                   variant="outline"
                   size="icon"
                   className="size-8"
-                  disabled={isIndexing || isDocsPending}
+                  disabled={isIndexing}
                   onClick={handleIndex}
                   aria-label="Index pending sources"
                 >
                   {isIndexing ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
-                </Button>
-              </ActionTooltip>
-              <ActionTooltip label="Index product docs">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="size-8"
-                  disabled={isIndexing || isDocsPending}
-                  onClick={handleDocsIndex}
-                  aria-label="Index product docs"
-                >
-                  {isDocsPending ? (
-                    <Loader2 className="size-4 animate-spin" />
-                  ) : (
-                    <FileText className="size-4" />
-                  )}
                 </Button>
               </ActionTooltip>
               {confirmReindex ? (
@@ -535,12 +507,18 @@ export function IceSettings({
                   <Button
                     variant="destructive"
                     size="sm"
-                    disabled={isReindexPending || isIndexing || isDocsPending}
+                    disabled={isReindexPending || isIndexing}
                     onClick={() => {
                       void reindexAll()
-                        .then(() => {
+                        .then((result) => {
                           setConfirmReindex(false);
-                          toast.success('Full reindex completed');
+                          if (result.failed > 0) {
+                            toast.error(`Reindex finished with ${result.failed} failed${result.errors[0] ? ` - ${result.errors[0].error}` : ''}`);
+                          } else if (result.pendingLeft > 0) {
+                            toast.success(`Reindexed ${result.indexed} sources; ${result.pendingLeft} still pending`);
+                          } else {
+                            toast.success(`Reindex completed (${result.indexed} sources). Earlier index kept searchable.`);
+                          }
                         })
                         .catch((error: unknown) =>
                           toast.error(error instanceof Error ? error.message : 'Reindex failed'),
@@ -568,6 +546,11 @@ export function IceSettings({
                 </ActionTooltip>
               )}
             </div>
+            {status?.lastRunError && (
+              <p role="alert" className="text-xs text-destructive">
+                Last index run stopped: {status.lastRunError}
+              </p>
+            )}
             {errors.length > 0 && (
               <ul className="flex max-h-24 flex-col gap-1 overflow-y-auto">
                 {errors.map((failure) => (
