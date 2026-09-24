@@ -1,5 +1,6 @@
 # syntax=docker/dockerfile:1.7
-FROM node:20-alpine
+# ONNX Runtime's Linux native binary requires glibc (Alpine uses musl).
+FROM node:20-bookworm-slim
 
 ENV PNPM_HOME=/pnpm
 ENV PATH=$PNPM_HOME:$PATH
@@ -17,4 +18,4 @@ RUN --mount=type=cache,id=tasklabs-pnpm-store,target=/pnpm/store \
 
 WORKDIR /workspace/frontend
 
-CMD ["pnpm", "dev"]
+CMD ["sh", "-c", "rm -rf .next/dev && exec pnpm dev"]

@@ -87,6 +87,7 @@ services:
     volumes:
       - ./frontend:/workspace/frontend:rw
       - ./backend/convex:/workspace/backend/convex:ro
+      - ./docs/docs:/workspace/docs/docs:ro
       - /workspace/node_modules
       - /workspace/frontend/node_modules
       - /workspace/frontend/.next

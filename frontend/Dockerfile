@@ -1,5 +1,6 @@
 # syntax=docker/dockerfile:1.7
-FROM node:20-alpine AS base
+# Keep dev/build/runtime on glibc for local ONNX embeddings.
+FROM node:20-bookworm-slim AS base
 ENV PNPM_HOME=/pnpm
 ENV PATH=$PNPM_HOME:$PATH
 RUN corepack enable && corepack prepare pnpm@10.15.0 --activate && pnpm config set store-dir /pnpm/store
@@ -37,6 +38,7 @@ COPY --from=build /workspace/backend/node_modules /workspace/backend/node_module
 COPY --from=build /workspace/backend/convex /workspace/backend/convex
 COPY --from=build /workspace/backend/package.json /workspace/backend/package.json
 COPY backend/scripts /workspace/backend/scripts
+COPY docs/docs /workspace/docs/docs
 COPY --from=build /workspace/frontend/.next ./.next
 COPY --from=build /workspace/frontend/public ./public
 COPY --from=build /workspace/frontend/package.json ./package.json
