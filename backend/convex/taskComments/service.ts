@@ -1,6 +1,7 @@
 import type { Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { requireMembership, requireMembershipForUser } from "../lib/auth";
+import { trackRagRemoval, trackRagUpsert } from "../rag/service";
 import { getVisibleTaskInWorkspace } from "../tasks/model";
 import {
   getTaskCommentInWorkspace,
@@ -73,6 +74,7 @@ export async function addTaskCommentForActor(
   if (comment === null) {
     throw new Error("Task comment not found after create");
   }
+  await trackRagUpsert(ctx, workspaceId, "taskComment", commentId);
   return taskCommentDto(comment);
 }
 
@@ -125,6 +127,7 @@ export async function updateTaskCommentForActor(
   if (updated === null) {
     throw new Error("Task comment not found after update");
   }
+  await trackRagUpsert(ctx, workspaceId, "taskComment", commentId);
   return taskCommentDto(updated);
 }
 
@@ -167,5 +170,6 @@ export async function removeTaskCommentForActor(
     throw new Error("Only the author can remove a task comment");
   }
   await ctx.db.delete(commentId);
+  await trackRagRemoval(ctx, workspaceId, "taskComment", commentId);
   return null;
 }

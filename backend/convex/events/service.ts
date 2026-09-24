@@ -1,6 +1,7 @@
 import type { Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { requireMembership, requireMembershipForUser } from "../lib/auth";
+import { trackRagRemoval, trackRagUpsert } from "../rag/service";
 import { createNotificationRecord } from "../notifications/model";
 import {
   assertEventRange,
@@ -150,6 +151,7 @@ export async function createEventForActor(
   if (event === null) {
     throw new Error("Event not found after create");
   }
+  await trackRagUpsert(ctx, workspaceId, "event", eventId);
   return eventDto(event);
 }
 
@@ -204,6 +206,7 @@ export async function updateEventForActor(
   if (event === null) {
     throw new Error("Event not found after update");
   }
+  await trackRagUpsert(ctx, workspaceId, "event", eventId);
   return eventDto(event);
 }
 
@@ -261,6 +264,7 @@ export async function setEventCompletionForActor(
   if (event === null) {
     throw new Error("Event not found after completion update");
   }
+  await trackRagUpsert(ctx, workspaceId, "event", eventId);
   return eventDto(event);
 }
 
@@ -288,5 +292,6 @@ export async function removeEventForActor(
     throw new Error("Event not found");
   }
   await ctx.db.delete(eventId);
+  await trackRagRemoval(ctx, workspaceId, "event", eventId);
   return null;
 }

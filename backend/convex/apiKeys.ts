@@ -53,6 +53,11 @@ import {
   updateTaskCommentForActor,
 } from "./taskComments/service";
 import {
+  ragStatusForActor,
+  reindexWorkspaceForActor,
+} from "./rag/service";
+import { RAG_EMBEDDING_DIMENSIONS } from "./rag/providers";
+import {
   getWorkspaceForActor,
   listMembersForActor,
   removeMemberForActor,
@@ -123,6 +128,10 @@ const MCP_TOOL_SCOPES: Record<string, ApiKeyScope[]> = {
   "notifications.markRead": ["notifications:write"],
   "notifications.markAllRead": ["notifications:write"],
   "search.query": ["search:read"],
+  "rag.query": ["rag:read"],
+  "rag.ask": ["rag:read"],
+  "rag.status": ["rag:read"],
+  "rag.reindex": ["rag:write"],
   "profile.get": ["profile:read"],
   "profile.update": ["profile:write"],
   "telegram.status": ["telegram:read"],
@@ -261,6 +270,25 @@ function optionalNumbers(input: Record<string, unknown>, key: string) {
     throw new Error(`${key} must contain only numbers`);
   }
   return value;
+}
+
+/**
+ * MCP callers never send raw vectors: the Next.js MCP route embeds the
+ * question locally and injects `queryVector`. The service re-validates
+ * model/dimension identity before any retrieval runs.
+ */
+function queryVectorArg(input: Record<string, unknown>) {
+  const value = input.queryVector;
+  if (!Array.isArray(value)) {
+    throw new Error("queryVector is required (injected by the MCP route)");
+  }
+  if (
+    value.length !== RAG_EMBEDDING_DIMENSIONS ||
+    value.some((item) => typeof item !== "number" || !Number.isFinite(item))
+  ) {
+    throw new Error(`queryVector must hold ${RAG_EMBEDDING_DIMENSIONS} finite numbers`);
+  }
+  return value as number[];
 }
 
 function optionalResources(input: Record<string, unknown>, key: string) {
@@ -793,6 +821,13 @@ export const mcpDispatchMutation = internalMutation({
           optionalNumber(input, "limit"),
           true,
         );
+      case "rag.query":
+      case "rag.ask":
+        throw new Error("RAG tools must run through the action dispatcher");
+      case "rag.status":
+        return await ragStatusForActor(ctx, actor.workspaceId, actor.userId, true);
+      case "rag.reindex":
+        return await reindexWorkspaceForActor(ctx, actor.workspaceId, actor.userId);
       case "profile.get":
         return await userDto(ctx, actor.userId);
       case "profile.update": {
@@ -849,6 +884,29 @@ export const mcpDispatch = action({
     input: v.optional(v.any()),
   },
   handler: async (ctx, args) => {
+    if (args.toolName === "rag.query" || args.toolName === "rag.ask") {
+      const actor = await ctx.runMutation(internalApi.apiKeys.verifyBearerInternal, {
+        token: args.token,
+        requiredScopes: [],
+      });
+      assertRequiredScopes(actor.scopes, requiredScopesForTool(args.toolName));
+      const input = record(args.input);
+      optionalWorkspaceCheck(actor, input);
+      const actionArgs = {
+        workspaceId: actor.workspaceId,
+        userId: actor.userId,
+        vector: queryVectorArg(input),
+        topK: optionalNumber(input, "topK"),
+        minScore: optionalNumber(input, "minScore"),
+      };
+      if (args.toolName === "rag.query") {
+        return await ctx.runAction(internalApi.rag.retrieveForActor, actionArgs);
+      }
+      return await ctx.runAction(internalApi.rag.askForActor, {
+        ...actionArgs,
+        question: stringArg(input, "q"),
+      });
+    }
     if (args.toolName !== "telegram.test") {
       return await ctx.runMutation(internalApi.apiKeys.mcpDispatchMutation, args);
     }

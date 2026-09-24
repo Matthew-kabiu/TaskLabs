@@ -112,6 +112,8 @@ export const apiKeyScope = v.union(
   v.literal("profile:write"),
   v.literal("telegram:read"),
   v.literal("telegram:test"),
+  v.literal("rag:read"),
+  v.literal("rag:write"),
   v.literal("system:read"),
   v.literal("system:write"),
 );

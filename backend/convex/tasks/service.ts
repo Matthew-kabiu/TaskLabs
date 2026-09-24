@@ -20,6 +20,7 @@ import {
   TaskForbiddenError,
 } from "./model";
 import { createNotificationRecord } from "../notifications/model";
+import { trackRagRemoval, trackRagUpsert } from "../rag/service";
 
 export type ListTaskFilters = {
   status?: TaskStatus;
@@ -341,6 +342,7 @@ export async function createTaskForActor(
   if (labelIds !== undefined) {
     await replaceLabels(ctx, { workspaceId, taskId, labelIds });
   }
+  await trackRagUpsert(ctx, workspaceId, "task", taskId);
   return await taskWithRelations(ctx, task);
 }
 
@@ -432,6 +434,7 @@ export async function updateTaskForActor(
   if (labelIds !== undefined) {
     await replaceLabels(ctx, { workspaceId, taskId, labelIds });
   }
+  await trackRagUpsert(ctx, workspaceId, "task", taskId);
   return await taskWithRelations(ctx, task);
 }
 
@@ -458,8 +461,16 @@ export async function removeTaskForActor(
   if (existing.isPrivate && existing.creatorId !== userId) {
     throw new TaskForbiddenError();
   }
+  const commentRows = await ctx.db
+    .query("taskComments")
+    .withIndex("by_task", (q) => q.eq("taskId", taskId))
+    .collect();
   await deleteTaskRelations(ctx, taskId);
   await ctx.db.delete(taskId);
+  await trackRagRemoval(ctx, workspaceId, "task", taskId);
+  for (const comment of commentRows) {
+    await trackRagRemoval(ctx, workspaceId, "taskComment", comment._id);
+  }
   return null;
 }
 
@@ -500,8 +511,16 @@ export async function removeTasksForActor(
   }
 
   for (const taskId of uniqueTaskIds) {
+    const comments = await ctx.db
+      .query("taskComments")
+      .withIndex("by_task", (q) => q.eq("taskId", taskId))
+      .collect();
     await deleteTaskRelations(ctx, taskId);
     await ctx.db.delete(taskId);
+    await trackRagRemoval(ctx, workspaceId, "task", taskId);
+    for (const comment of comments) {
+      await trackRagRemoval(ctx, workspaceId, "taskComment", comment._id);
+    }
   }
 
   return { deleted: uniqueTaskIds.length };

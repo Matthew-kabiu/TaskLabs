@@ -14,4 +14,16 @@ export const tasklabsRateLimiter = new RateLimiter(components.rateLimiter, {
     period: MINUTE,
     capacity: 30,
   },
+  ragQuery: {
+    kind: "token bucket",
+    rate: 60,
+    period: HOUR,
+    capacity: 20,
+  },
+  ragIndex: {
+    kind: "token bucket",
+    rate: 60,
+    period: HOUR,
+    capacity: 20,
+  },
 });

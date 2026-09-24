@@ -1,6 +1,7 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 import { authTables } from "@convex-dev/auth/server";
+import { citationArg } from './rag/conversationValidators';
 
 /**
  * TaskLabs data model.
@@ -13,6 +14,18 @@ import { authTables } from "@convex-dev/auth/server";
  */
 export default defineSchema({
   ...authTables,
+
+  iceConversations: defineTable({
+    workspaceId: v.id('workspaces'), userId: v.id('users'), generation: v.number(), updatedAt: v.number(),
+  }).index('by_workspace_user', ['workspaceId', 'userId']),
+  iceTurns: defineTable({
+    conversationId: v.id('iceConversations'), generation: v.number(), requestId: v.string(),
+    question: v.string(), mode: v.union(v.literal('ask'), v.literal('retrieve')),
+    status: v.union(v.literal('pending'), v.literal('complete'), v.literal('error')),
+    answer: v.optional(v.string()), citations: v.array(citationArg), empty: v.boolean(),
+    error: v.optional(v.string()),
+  }).index('by_conversation_generation', ['conversationId', 'generation'])
+    .index('by_request', ['conversationId', 'generation', 'requestId']),
 
   users: defineTable({
     name: v.optional(v.string()),
@@ -309,6 +322,8 @@ export default defineSchema({
         v.literal("profile:write"),
         v.literal("telegram:read"),
         v.literal("telegram:test"),
+        v.literal("rag:read"),
+        v.literal("rag:write"),
         v.literal("system:read"),
         v.literal("system:write"),
       ),
@@ -335,4 +350,133 @@ export default defineSchema({
   })
     .index("by_api_key", ["apiKeyId"])
     .index("by_api_key_operation_key", ["apiKeyId", "operation", "key"]),
+
+  ragDocuments: defineTable({
+    workspaceId: v.id("workspaces"),
+    sourceType: v.union(
+      v.literal("task"),
+      v.literal("taskComment"),
+      v.literal("project"),
+      v.literal("projectUpdate"),
+      v.literal("event"),
+      v.literal("docs"),
+    ),
+    sourceId: v.string(),
+    contentVersion: v.string(),
+    contentHash: v.string(),
+    indexStatus: v.union(
+      v.literal("pending"),
+      v.literal("indexing"),
+      v.literal("complete"),
+      v.literal("failed"),
+    ),
+    embeddingModel: v.string(),
+    embeddingVersion: v.string(),
+    chunkCount: v.number(),
+    error: v.optional(v.string()),
+    updatedAt: v.number(),
+  })
+    .index("by_workspace_source", ["workspaceId", "sourceType", "sourceId"])
+    .index("by_workspace_status", ["workspaceId", "indexStatus"]),
+
+  ragChunks: defineTable({
+    workspaceId: v.id("workspaces"),
+    documentId: v.id("ragDocuments"),
+    sourceType: v.string(),
+    sourceId: v.string(),
+    sourceAnchor: v.string(),
+    title: v.string(),
+    ordinal: v.number(),
+    text: v.string(),
+    textHash: v.string(),
+    embedding: v.array(v.number()),
+    embeddingModel: v.string(),
+    embeddingVersion: v.string(),
+    version: v.number(),
+    isActive: v.boolean(),
+    createdAt: v.number(),
+  })
+    .index("by_document", ["documentId"])
+    .index("by_workspace_source", ["workspaceId", "sourceId"])
+    .vectorIndex("by_embedding", {
+      vectorField: "embedding",
+      dimensions: 384,
+      filterFields: ["workspaceId", "sourceType"],
+    }),
+
+  ragWorkspaceState: defineTable({
+    workspaceId: v.id("workspaces"),
+    indexVersion: v.number(),
+    embeddingModel: v.string(),
+    embeddingVersion: v.string(),
+    pendingCount: v.number(),
+    updatedAt: v.number(),
+  }).index("by_workspace", ["workspaceId"]),
+
+  ragFeedback: defineTable({
+    workspaceId: v.id("workspaces"),
+    userId: v.id("users"),
+    questionHash: v.string(),
+    rating: v.union(v.literal("up"), v.literal("down")),
+    reason: v.optional(v.string()),
+    createdAt: v.number(),
+  }).index("by_workspace", ["workspaceId"]),
+
+  iceProviderKeys: defineTable({
+    workspaceId: v.id("workspaces"),
+    userId: v.id("users"),
+    provider: v.union(
+      v.literal("gemini"),
+      v.literal("claude"),
+      v.literal("openai"),
+      v.literal("openrouter"),
+    ),
+    encryptedKey: v.string(),
+    keySuffix: v.string(),
+    updatedAt: v.number(),
+  }).index("by_workspace_user_provider", [
+    "workspaceId",
+    "userId",
+    "provider",
+  ]),
+
+  icePreferences: defineTable({
+    workspaceId: v.id("workspaces"),
+    userId: v.id("users"),
+    chatProvider: v.union(
+      v.literal("local"),
+      v.literal("gemini"),
+      v.literal("claude"),
+      v.literal("openai"),
+      v.literal("openrouter"),
+    ),
+    chatModel: v.string(),
+    embeddingProvider: v.optional(v.union(v.literal('local'), v.literal('openai'), v.literal('gemini'), v.literal('openrouter'))),
+    embeddingModel: v.optional(v.string()),
+    embeddingRevision: v.optional(v.number()),
+    updatedAt: v.number(),
+  }).index("by_workspace_user", ["workspaceId", "userId"]),
+
+  iceDocuments: defineTable({
+    workspaceId: v.id('workspaces'),
+    userId: v.id('users'),
+    namespace: v.string(),
+    sourceType: v.string(),
+    sourceId: v.string(),
+    sourceRevision: v.number(),
+    state: v.union(v.literal('indexing'), v.literal('complete'), v.literal('failed')),
+    claim: v.string(),
+    error: v.optional(v.string()),
+    chunkCount: v.number(),
+    updatedAt: v.number(),
+  }).index('by_namespace_source', ['namespace', 'sourceType', 'sourceId'])
+    .index('by_workspace_source', ['workspaceId', 'sourceType', 'sourceId']),
+
+  iceChunks: defineTable({
+    workspaceId: v.id('workspaces'), userId: v.id('users'), namespace: v.string(),
+    documentId: v.id('iceDocuments'),
+    text: v.string(), title: v.string(), anchor: v.string(), embedding: v.array(v.number()),
+    searchEmbedding: v.optional(v.array(v.number())),
+  }).index('by_document', ['documentId'])
+    .vectorIndex('by_embedding_native', { vectorField: 'searchEmbedding', dimensions: 4096, filterFields: ['namespace'] }),
 });

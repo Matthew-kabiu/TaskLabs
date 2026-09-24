@@ -20,6 +20,8 @@ export const API_KEY_SCOPES = [
   "profile:write",
   "telegram:read",
   "telegram:test",
+  "rag:read",
+  "rag:write",
   "system:read",
   "system:write",
 ] as const;

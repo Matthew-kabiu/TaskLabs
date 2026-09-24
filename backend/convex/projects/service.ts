@@ -1,6 +1,7 @@
 import type { Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { requireMembership, requireMembershipForUser } from "../lib/auth";
+import { trackRagRemoval, trackRagUpsert } from "../rag/service";
 import { deleteTaskRelations } from "../tasks/model";
 import {
   getProjectInWorkspace,
@@ -218,6 +219,7 @@ export async function createProjectForActor(
   if (project === null) {
     throw new Error("Project not found after create");
   }
+  await trackRagUpsert(ctx, workspaceId, "project", projectId);
   return projectDto(project);
 }
 
@@ -302,6 +304,7 @@ export async function updateProjectForActor(
   if (project === null) {
     throw new Error("Project not found after update");
   }
+  await trackRagUpsert(ctx, workspaceId, "project", projectId);
   const favorite = await getProjectFavorite(ctx, projectId, userId);
   return projectDto(project, favorite !== null);
 }
@@ -318,8 +321,16 @@ async function cascadeDeleteProject(
     )
     .collect();
   for (const task of tasks) {
+    const comments = await ctx.db
+      .query("taskComments")
+      .withIndex("by_task", (q) => q.eq("taskId", task._id))
+      .collect();
     await deleteTaskRelations(ctx, task._id);
     await ctx.db.delete(task._id);
+    await trackRagRemoval(ctx, workspaceId, "task", task._id);
+    for (const comment of comments) {
+      await trackRagRemoval(ctx, workspaceId, "taskComment", comment._id);
+    }
   }
   const updates = await ctx.db
     .query("projectUpdates")
@@ -327,6 +338,7 @@ async function cascadeDeleteProject(
     .collect();
   for (const update of updates) {
     await ctx.db.delete(update._id);
+    await trackRagRemoval(ctx, workspaceId, "projectUpdate", update._id);
   }
   const favorites = await ctx.db
     .query("projectFavorites")
@@ -335,6 +347,7 @@ async function cascadeDeleteProject(
   for (const favorite of favorites) {
     await ctx.db.delete(favorite._id);
   }
+  await trackRagRemoval(ctx, workspaceId, "project", projectId);
 }
 
 export async function setProjectFavorite(
@@ -463,6 +476,7 @@ export async function addProjectUpdateForActor(
     throw new Error("Project update not found after create");
   }
   await ctx.db.patch(projectId, { updatedAt: now });
+  await trackRagUpsert(ctx, workspaceId, "projectUpdate", updateId);
   return projectUpdateDto(update);
 }
 
@@ -503,5 +517,6 @@ export async function removeProjectUpdateForActor(
     throw new Error("Only the author can remove a project update");
   }
   await ctx.db.delete(updateId);
+  await trackRagRemoval(ctx, workspaceId, "projectUpdate", updateId);
   return null;
 }
