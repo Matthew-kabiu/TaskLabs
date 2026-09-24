@@ -9,6 +9,7 @@ import type { Id } from '@convex/_generated/dataModel';
 import type { CreateTaskCommentInput } from '@/lib/validations/task-comment.schema';
 import { usePendingMutation } from '@/hooks/usePendingMutation';
 import { useWorkspaces } from '@/hooks/useWorkspaces';
+import { triggerIceIndex } from '@/hooks/useIce';
 import { BACKEND_ROUTES } from '@/lib/routes';
 
 export interface TaskCommentDTO {
@@ -57,11 +58,13 @@ export function useAddTaskComment(workspaceIdArg?: string | null) {
         if (!workspaceId) {
           throw new Error('Select a workspace before commenting on tasks.');
         }
-        return (await addComment({
+        const created = (await addComment({
           workspaceId: workspaceId as Id<'workspaces'>,
           taskId: taskId as Id<'tasks'>,
           body: input.body,
         })) as TaskCommentDTO;
+        triggerIceIndex(workspaceId);
+        return created;
       },
       [addComment, workspaceId],
     ),
@@ -81,12 +84,14 @@ export function useUpdateTaskComment(workspaceIdArg?: string | null) {
         if (!workspaceId) {
           throw new Error('Select a workspace before editing task comments.');
         }
-        return (await updateComment({
+        const updated = (await updateComment({
           workspaceId: workspaceId as Id<'workspaces'>,
           taskId: taskId as Id<'tasks'>,
           commentId: commentId as Id<'taskComments'>,
           body: input.body,
         })) as TaskCommentDTO;
+        triggerIceIndex(workspaceId);
+        return updated;
       },
       [updateComment, workspaceId],
     ),
@@ -111,6 +116,7 @@ export function useRemoveTaskComment(workspaceIdArg?: string | null) {
           taskId: taskId as Id<'tasks'>,
           commentId: commentId as Id<'taskComments'>,
         });
+        triggerIceIndex(workspaceId);
       },
       [removeComment, workspaceId],
     ),

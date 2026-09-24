@@ -12,6 +12,7 @@ import type {
 } from '@/lib/validations/event.schema';
 import { usePendingMutation } from '@/hooks/usePendingMutation';
 import { useWorkspaces } from '@/hooks/useWorkspaces';
+import { triggerIceIndex } from '@/hooks/useIce';
 import { BACKEND_ROUTES } from '@/lib/routes';
 
 export interface CalendarEventDTO {
@@ -115,9 +116,11 @@ export function useCreateEvent() {
         if (!activeWorkspaceId) {
           throw new Error('Select a workspace before creating events.');
         }
-        return (await createEvent(
+        const created = (await createEvent(
           createArgs(activeWorkspaceId, input) as Parameters<typeof createEvent>[0],
         )) as CalendarEventDTO;
+        triggerIceIndex(activeWorkspaceId);
+        return created;
       },
       [activeWorkspaceId, createEvent],
     ),
@@ -136,9 +139,11 @@ export function useUpdateEvent() {
         if (!activeWorkspaceId) {
           throw new Error('Select a workspace before updating events.');
         }
-        return (await updateEvent(
+        const updated = (await updateEvent(
           updateArgs(activeWorkspaceId, id, data) as Parameters<typeof updateEvent>[0],
         )) as CalendarEventDTO;
+        triggerIceIndex(activeWorkspaceId);
+        return updated;
       },
       [activeWorkspaceId, updateEvent],
     ),
@@ -154,11 +159,13 @@ export function useToggleEventComplete() {
         if (!activeWorkspaceId) {
           throw new Error('Select a workspace before updating events.');
         }
-        return (await completeEvent({
+        const updated = (await completeEvent({
           workspaceId: activeWorkspaceId as Id<'workspaces'>,
           eventId: id as Id<'calendarEvents'>,
           completed,
         })) as CalendarEventDTO;
+        triggerIceIndex(activeWorkspaceId);
+        return updated;
       },
       [activeWorkspaceId, completeEvent],
     ),
@@ -178,6 +185,7 @@ export function useDeleteEvent() {
           workspaceId: activeWorkspaceId as Id<'workspaces'>,
           eventId: id as Id<'calendarEvents'>,
         });
+        triggerIceIndex(activeWorkspaceId);
       },
       [activeWorkspaceId, removeEvent],
     ),

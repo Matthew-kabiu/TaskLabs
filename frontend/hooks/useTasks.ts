@@ -16,6 +16,7 @@ export type TaskListFilters = Partial<ListTasksQuery> & {
   projectId?: string | null;
 };
 import { useWorkspaces } from '@/hooks/useWorkspaces';
+import { triggerIceIndex } from '@/hooks/useIce';
 import type { Priority, TaskStatus } from '@/lib/tasks/grouping';
 import { BACKEND_ROUTES } from '@/lib/routes';
 
@@ -220,7 +221,9 @@ export function useCreateTask(workspaceIdArg?: string | null) {
     useCallback(
       async (input) => {
         if (!workspaceId) throw new Error('Select a workspace before creating tasks.');
-        return (await createTask(createArgs(workspaceId, input))) as TaskDTO;
+        const created = (await createTask(createArgs(workspaceId, input))) as TaskDTO;
+        triggerIceIndex(workspaceId);
+        return created;
       },
       [createTask, workspaceId],
     ),
@@ -235,7 +238,9 @@ export function useUpdateTask(workspaceIdArg?: string | null) {
     useCallback(
       async ({ id, input }) => {
         if (!workspaceId) throw new Error('Select a workspace before updating tasks.');
-        return (await updateTask(updateArgs(workspaceId, id, input))) as TaskDTO;
+        const updated = (await updateTask(updateArgs(workspaceId, id, input))) as TaskDTO;
+        triggerIceIndex(workspaceId);
+        return updated;
       },
       [updateTask, workspaceId],
     ),
@@ -254,6 +259,7 @@ export function useDeleteTask(workspaceIdArg?: string | null) {
           workspaceId: workspaceId as Id<'workspaces'>,
           taskId: id as Id<'tasks'>,
         });
+        triggerIceIndex(workspaceId);
       },
       [removeTask, workspaceId],
     ),
@@ -268,10 +274,12 @@ export function useDeleteTasks(workspaceIdArg?: string | null) {
     useCallback(
       async (ids) => {
         if (!workspaceId) throw new Error('Select a workspace before deleting tasks.');
-        return (await removeTasks({
+        const result = (await removeTasks({
           workspaceId: workspaceId as Id<'workspaces'>,
           taskIds: ids.map((id) => id as Id<'tasks'>),
         })) as { deleted: number };
+        triggerIceIndex(workspaceId);
+        return result;
       },
       [removeTasks, workspaceId],
     ),

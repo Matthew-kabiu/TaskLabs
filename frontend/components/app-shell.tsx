@@ -10,6 +10,7 @@ import { useProjects } from '@/hooks/useProjects';
 import { useActiveProject } from '@/hooks/useActiveProject';
 import { BACKEND_ROUTES, ROUTES } from '@/lib/routes';
 import { AppTimeZoneProvider } from '@/components/app-time-zone';
+import { IceFab } from '@/components/ice/ice-fab';
 
 type ProfileUser = {
   name: string | null;
@@ -77,6 +78,7 @@ export function AppShell({ children, timeZone }: { children: React.ReactNode; ti
       <main className="flex flex-1 flex-col overflow-hidden pt-14 pb-16 md:pt-0 md:pb-0">
         <PageTransition>{children}</PageTransition>
       </main>
+      <IceFab />
     </div>
     </AppTimeZoneProvider>
   );

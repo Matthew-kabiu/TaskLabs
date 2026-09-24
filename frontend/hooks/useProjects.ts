@@ -14,6 +14,7 @@ import type {
 } from '@/lib/validations/project.schema';
 import { usePendingMutation } from '@/hooks/usePendingMutation';
 import { useWorkspaces } from '@/hooks/useWorkspaces';
+import { triggerIceIndex } from '@/hooks/useIce';
 import { BACKEND_ROUTES } from '@/lib/routes';
 
 export type ProjectStatus =
@@ -209,17 +210,18 @@ export function useCreateProject(workspaceIdArg?: string | null) {
         if (!workspaceId) {
           throw new Error('Select a workspace before creating projects.');
         }
-        return (await createProject(
+        const created = (await createProject(
           createArgs(workspaceId, input) as Parameters<typeof createProject>[0],
         )) as ProjectDTO;
+        triggerIceIndex(workspaceId);
+        return created;
       },
       [createProject, workspaceId],
     ),
   );
 }
 
-export function useUpdateProject(workspaceIdArg?: string | null) {
-  const { activeWorkspaceId } = useWorkspaces();
+export function useUpdateProject(workspaceIdArg?: string | null) {  const { activeWorkspaceId } = useWorkspaces();
   const workspaceId = workspaceIdArg ?? activeWorkspaceId;
   const updateProject = useConvexMutation(BACKEND_ROUTES.projects.update);
   return usePendingMutation<ProjectDTO, { id: string; input: UpdateProjectInput }>(
@@ -228,11 +230,13 @@ export function useUpdateProject(workspaceIdArg?: string | null) {
         if (!workspaceId) {
           throw new Error('Select a workspace before updating projects.');
         }
-        return (await updateProject(
+        const updated = (await updateProject(
           updateArgs(workspaceId, id, input) as Parameters<
             typeof updateProject
           >[0],
         )) as ProjectDTO;
+        triggerIceIndex(workspaceId);
+        return updated;
       },
       [updateProject, workspaceId],
     ),
@@ -253,6 +257,7 @@ export function useDeleteProject(workspaceIdArg?: string | null) {
           workspaceId: workspaceId as Id<'workspaces'>,
           projectId: id as Id<'projects'>,
         });
+        triggerIceIndex(workspaceId);
       },
       [removeProject, workspaceId],
     ),
@@ -293,11 +298,13 @@ export function useAddProjectUpdate(workspaceIdArg?: string | null) {
         if (!workspaceId) {
           throw new Error('Select a workspace before posting project updates.');
         }
-        return (await addUpdate({
+        const created = (await addUpdate({
           workspaceId: workspaceId as Id<'workspaces'>,
           projectId: projectId as Id<'projects'>,
           body: input.body,
         })) as ProjectUpdateDTO;
+        triggerIceIndex(workspaceId);
+        return created;
       },
       [addUpdate, workspaceId],
     ),
@@ -322,6 +329,7 @@ export function useRemoveProjectUpdate(workspaceIdArg?: string | null) {
           projectId: projectId as Id<'projects'>,
           updateId: updateId as Id<'projectUpdates'>,
         });
+        triggerIceIndex(workspaceId);
       },
       [removeUpdate, workspaceId],
     ),
