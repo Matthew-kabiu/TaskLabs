@@ -125,6 +125,7 @@ export const BACKEND_ROUTES = {
   iceIndex: {
     config: api.iceIndex.config,
     status: api.iceIndex.status,
+    summary: api.iceIndex.summary,
     beginIndex: api.iceIndex.beginIndex,
     syncSources: api.iceIndex.syncSources,
     finishSourceSync: api.iceIndex.finishSourceSync,

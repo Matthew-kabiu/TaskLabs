@@ -27,6 +27,14 @@ type ConversationHistory = { role: 'user' | 'assistant'; text: string }[];
 type SourceSyncPage = { seeded: number; isDone: boolean; continueCursor: string; alreadySynced: boolean };
 type ClaimedSource = { documentId: Id<'iceDocuments'>; claim: string; sourceType: string; sourceId: string; title: string; text: string; anchor: string };
 
+/** Output-token cap for chat-model answers, from ICE_MAX_OUTPUT_TOKENS. Required; no default. */
+function iceMaxOutputTokens(): number {
+  const raw = process.env.ICE_MAX_OUTPUT_TOKENS;
+  const value = Number(raw);
+  if (!raw || !Number.isInteger(value) || value < 64 || value > 64_000) throw new Error('ICE_MAX_OUTPUT_TOKENS must be set to a whole number between 64 and 64000');
+  return value;
+}
+
 /** Keep one index request comfortably inside proxy/request timeouts. */
 const INDEX_TIME_BUDGET_MS = 45_000;
 const CLAIM_BATCH = 16;
@@ -60,12 +68,17 @@ export async function personalQuery(client: ConvexHttpClient, input: { workspace
 
 export async function personalAsk(client: ConvexHttpClient, input: { workspaceId: string; question: string; topK?: number; provider: IceChatProvider; byokModel?: string; byokKey?: string }, history: ConversationHistory = []): Promise<IceAskResponse> {
   const retrieval = await personalQuery(client, input, history);
-  const prefs = await client.query(BACKEND_ROUTES.icePreferences.get, { workspaceId: input.workspaceId as Id<'workspaces'> });
-  const request = { question: input.question, context: retrieval.results, history, ownerInstructions: prefs?.systemPrompt || undefined };
-  if (input.provider === 'local' || retrieval.empty) return { ...retrieval, ...buildExtractiveAnswer(request), provider: input.provider };
+  if (input.provider === 'local') return { ...retrieval, ...buildExtractiveAnswer({ question: input.question, context: retrieval.results }), provider: input.provider };
+  const workspaceId = input.workspaceId as Id<'workspaces'>;
+  const [prefs, summary] = await Promise.all([
+    client.query(BACKEND_ROUTES.icePreferences.get, { workspaceId }),
+    client.query(BACKEND_ROUTES.iceIndex.summary, { workspaceId }),
+  ]);
+  // The live summary lets the model answer count and list questions even when retrieval is empty.
+  const request = { question: input.question, context: retrieval.results, history, ownerInstructions: prefs?.systemPrompt || undefined, workspaceSummary: summary };
   if (!input.byokModel) throw new Error('Select a chat model first');
   const key = await savedKey(client, input.workspaceId, input.provider);
-  const generated = await generateWithProvider({ provider: input.provider, model: input.byokModel, apiKey: key }, request);
+  const generated = await generateWithProvider({ provider: input.provider, model: input.byokModel, apiKey: key, maxOutputTokens: iceMaxOutputTokens() }, request);
   return { ...retrieval, ...generated, provider: input.provider };
 }
 

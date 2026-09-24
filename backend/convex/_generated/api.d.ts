@@ -54,6 +54,7 @@ import type * as rag_personal from "../rag/personal.js";
 import type * as rag_providers from "../rag/providers.js";
 import type * as rag_remoteEmbedding from "../rag/remoteEmbedding.js";
 import type * as rag_service from "../rag/service.js";
+import type * as rag_summary from "../rag/summary.js";
 import type * as registration from "../registration.js";
 import type * as search from "../search.js";
 import type * as settings from "../settings.js";
@@ -126,6 +127,7 @@ declare const fullApi: ApiFromModules<{
   "rag/providers": typeof rag_providers;
   "rag/remoteEmbedding": typeof rag_remoteEmbedding;
   "rag/service": typeof rag_service;
+  "rag/summary": typeof rag_summary;
   registration: typeof registration;
   search: typeof search;
   settings: typeof settings;

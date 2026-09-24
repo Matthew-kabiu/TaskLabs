@@ -10,6 +10,7 @@ import { embeddingConfig } from './rag/embeddingConfig';
 import { indexVector } from './rag/embeddingModels';
 import { adjustCounters, claimBatch as claimSources, ensureIndexState, personalStatus, readIndexState, reindexPersonal, requeueFailed, visibleSource } from './rag/personal';
 import { expandNeighbours } from './rag/neighbours';
+import { workspaceSummary } from './rag/summary';
 import { completeWorkspaceSourceSync, seedMissingRagSources } from './rag/service';
 import { RAG_MIN_SCORE, RAG_SOURCE_SYNC_VERSION, isRagSourceType, type RetrievedChunk } from './rag/providers';
 
@@ -18,6 +19,12 @@ export const config = query({ args: { workspaceId }, handler: async (ctx, args) 
   const { userId } = await requireMembership(ctx, args.workspaceId);
   return await embeddingConfig(ctx, args.workspaceId, userId);
 }});
+/** Live counts and lists for the chat model; see rag/summary.ts. */
+export const summary = query({ args: { workspaceId }, handler: async (ctx, args) => {
+  const { userId } = await requireMembership(ctx, args.workspaceId);
+  return await workspaceSummary(ctx, args.workspaceId, userId);
+}});
+
 export const status = query({ args: { workspaceId }, handler: async (ctx, args) => {
   const { userId } = await requireMembership(ctx, args.workspaceId);
   return await personalStatus(ctx, args.workspaceId, userId);

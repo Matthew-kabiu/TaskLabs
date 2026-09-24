@@ -234,3 +234,28 @@ describe("ice over MCP and maintenance", () => {
     expect(leftovers).toEqual({ ledger: 0, docs: 0, chunks: 0 });
   });
 });
+
+describe("ice workspace summary", () => {
+  test("counts projects, visible tasks by status, overdue work and upcoming events", async () => {
+    const t = testBackend();
+    const { userId, otherId, workspaceId } = await seedWorkspace(t, "summary@example.com");
+    const now = Date.now();
+    await t.run(async (ctx) => {
+      const projectId = await ctx.db.insert("projects", { workspaceId, creatorId: userId, title: "Apollo", status: "IN_PROGRESS", priority: "HIGH", memberIds: [], resources: [], createdAt: now, updatedAt: now });
+      await ctx.db.insert("projects", { workspaceId, creatorId: userId, title: "Zeus", status: "PLANNING", priority: "LOW", memberIds: [], resources: [], createdAt: now, updatedAt: now });
+      const base = { workspaceId, priority: "MEDIUM" as const, position: 0, createdAt: now, updatedAt: now };
+      await ctx.db.insert("tasks", { ...base, creatorId: userId, number: 1, title: "Late", status: "TODO", isPrivate: false, projectId, dueDate: now - 86_400_000 });
+      await ctx.db.insert("tasks", { ...base, creatorId: userId, number: 2, title: "Shipped", status: "DONE", isPrivate: false, projectId, dueDate: now - 86_400_000 });
+      await ctx.db.insert("tasks", { ...base, creatorId: otherId, number: 3, title: "Hidden", status: "TODO", isPrivate: true });
+      await ctx.db.insert("calendarEvents", { workspaceId, creatorId: userId, title: "Standup", startAt: now + 3_600_000, endAt: now + 7_200_000, allDay: false, isPrivate: false, status: "SCHEDULED", createdAt: now, updatedAt: now });
+    });
+    const summary = await t.withIdentity({ subject: userId }).query(api.iceIndex.summary, { workspaceId });
+    expect(summary).toContain("Projects: 2");
+    expect(summary).toContain("- Apollo — status IN_PROGRESS, priority HIGH, 1 open tasks");
+    expect(summary).toContain("- Zeus — status PLANNING");
+    expect(summary).toContain("Tasks visible to you: 2");
+    expect(summary).toContain("Open tasks overdue: 1");
+    expect(summary).toContain("Events in the next 7 days: 1");
+    expect(summary).not.toContain("Hidden");
+  });
+});
