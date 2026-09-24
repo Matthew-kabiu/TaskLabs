@@ -29,6 +29,7 @@ export type IceResult = {
   anchor: string;
   title: string;
   target: IceLinkTarget;
+  via?: string;
 };
 
 export type IceQueryResponse = {

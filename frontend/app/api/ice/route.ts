@@ -95,7 +95,17 @@ export async function POST(request: Request) {
       }
     }
     if (parsed.data.action === 'models') return Response.json(await handleModels(client, parsed.data));
-    return Response.json(await personalIndex(client, parsed.data.workspaceId));
+    const workspaceId = parsed.data.workspaceId as Id<'workspaces'>;
+    try {
+      const result = await personalIndex(client, parsed.data.workspaceId, { retryFailed: parsed.data.retryFailed });
+      await client.mutation(BACKEND_ROUTES.iceIndex.recordRun, { workspaceId });
+      return Response.json(result);
+    } catch (error) {
+      // Run-level failures (rate limit, missing key, provider down) stay visible in status.
+      const message = error instanceof Error ? error.message.slice(0, 300) : 'Indexing failed';
+      await client.mutation(BACKEND_ROUTES.iceIndex.recordRun, { workspaceId, error: message }).catch(() => undefined);
+      throw error;
+    }
   } catch (error) {
     return Response.json({ error: error instanceof Error ? error.message.slice(0, 300) : 'Ice request failed' }, { status: 400 });
   }

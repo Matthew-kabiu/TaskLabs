@@ -35,6 +35,7 @@ export const iceModelsSchema = z.object({
 export const iceIndexSchema = z.object({
   action: z.literal('index'),
   workspaceId,
+  retryFailed: z.boolean().optional(),
 });
 
 export const iceRequestSchema = z.discriminatedUnion('action', [
