@@ -31,6 +31,7 @@ import {
   RAG_MIN_SCORE,
   RAG_RETRIEVAL_TOP_K_DEFAULT,
   RAG_RETRIEVAL_TOP_K_MAX,
+  RAG_SOURCE_SYNC_VERSION,
   isRagSourceType,
   type RagSourceType,
   type RetrievedChunk,
@@ -182,6 +183,56 @@ export async function trackRagRemoval(
       error instanceof Error ? error.message : "unknown",
     );
   }
+}
+
+/** Seed historical canonical records that predate domain-level RAG hooks. */
+export async function seedMissingRagSources(
+  ctx: MutationCtx,
+  workspaceId: Id<"workspaces">,
+  sourceType: Exclude<RagSourceType, "docs">,
+  sourceIds: string[],
+) {
+  if (sourceIds.length === 0) return 0;
+  const state = await ensureWorkspaceState(ctx, workspaceId);
+  const now = Date.now();
+  let seeded = 0;
+  for (const sourceId of sourceIds) {
+    const existing = await getRagDocument(ctx, workspaceId, sourceType, sourceId);
+    if (existing !== null) continue;
+    await ctx.db.insert("ragDocuments", {
+      workspaceId,
+      sourceType,
+      sourceId,
+      contentVersion: "",
+      contentHash: "",
+      indexStatus: "pending",
+      embeddingModel: RAG_EMBEDDING_MODEL,
+      embeddingVersion: RAG_EMBEDDING_VERSION,
+      chunkCount: 0,
+      updatedAt: now,
+    });
+    seeded += 1;
+  }
+  if (seeded > 0) {
+    await ctx.db.patch(state._id, {
+      indexVersion: state.indexVersion + 1,
+      pendingCount: state.pendingCount + seeded,
+      updatedAt: now,
+    });
+  }
+  return seeded;
+}
+
+export async function completeWorkspaceSourceSync(
+  ctx: MutationCtx,
+  workspaceId: Id<"workspaces">,
+) {
+  const state = await ensureWorkspaceState(ctx, workspaceId);
+  if ((state.sourceSyncVersion ?? 0) >= RAG_SOURCE_SYNC_VERSION) return;
+  await ctx.db.patch(state._id, {
+    sourceSyncVersion: RAG_SOURCE_SYNC_VERSION,
+    updatedAt: Date.now(),
+  });
 }
 
 export type PendingRagDocument = {

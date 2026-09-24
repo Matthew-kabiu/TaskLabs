@@ -285,6 +285,61 @@ describe("rag retrieval isolation", () => {
     expect(claimed?.sourceId).toBe(created.id);
   });
 
+  test("source sync discovers historical workspace records", async () => {
+    const t = testBackend();
+    const { userId, workspaceId } = await seedWorkspace(t, "History", "history@example.com");
+    const now = Date.now();
+    const ids = await t.run(async (ctx) => {
+      const projectId = await ctx.db.insert("projects", {
+        workspaceId, creatorId: userId, title: "Legacy project", status: "PLANNING", priority: "MEDIUM", memberIds: [], resources: [], createdAt: now, updatedAt: now,
+      });
+      const taskId = await ctx.db.insert("tasks", {
+        workspaceId, creatorId: userId, number: 1, title: "Legacy task", status: "TODO", priority: "MEDIUM", position: 0, isPrivate: false, projectId, createdAt: now, updatedAt: now,
+      });
+      const commentId = await ctx.db.insert("taskComments", {
+        workspaceId, taskId, authorId: userId, body: "Legacy comment", createdAt: now,
+      });
+      const updateId = await ctx.db.insert("projectUpdates", {
+        workspaceId, projectId, authorId: userId, body: "Legacy update", createdAt: now,
+      });
+      const eventId = await ctx.db.insert("calendarEvents", {
+        workspaceId, creatorId: userId, title: "Legacy event", startAt: now, endAt: now + 60_000, allDay: false, isPrivate: false, status: "SCHEDULED", createdAt: now, updatedAt: now,
+      });
+      return { projectId, taskId, commentId, updateId, eventId };
+    });
+
+    const actor = identity(t, userId);
+    const sourceTypes = ["task", "taskComment", "project", "projectUpdate", "event"] as const;
+    for (const sourceType of sourceTypes) {
+      const page = await actor.mutation(api.iceIndex.syncSources, {
+        workspaceId,
+        sourceType,
+        paginationOpts: { numItems: 100, cursor: null },
+      });
+      expect(page.isDone).toBe(true);
+      expect(page.seeded).toBe(1);
+    }
+    await actor.mutation(api.iceIndex.finishSourceSync, { workspaceId });
+
+    const ledger = await t.run(async (ctx) => await ctx.db.query("ragDocuments").withIndex("by_workspace_status", q => q.eq("workspaceId", workspaceId)).collect());
+    expect(ledger).toHaveLength(5);
+    expect(ledger.map(row => `${row.sourceType}:${row.sourceId}`).sort()).toEqual([
+      `event:${ids.eventId}`,
+      `project:${ids.projectId}`,
+      `projectUpdate:${ids.updateId}`,
+      `task:${ids.taskId}`,
+      `taskComment:${ids.commentId}`,
+    ].sort());
+    expect(ledger.every(row => row.indexStatus === "pending")).toBe(true);
+
+    const repeated = await actor.mutation(api.iceIndex.syncSources, {
+      workspaceId,
+      sourceType: "task",
+      paginationOpts: { numItems: 100, cursor: null },
+    });
+    expect(repeated).toMatchObject({ alreadySynced: true, seeded: 0 });
+  });
+
   test("worker write then task delete removes index rows synchronously", async () => {
     const t = testBackend();
     const { userId, workspaceId } = await seedWorkspace(t, "Gone", "gone@example.com");

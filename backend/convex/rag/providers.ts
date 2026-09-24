@@ -25,6 +25,7 @@ export const RAG_RETRIEVAL_TOP_K_MAX = 20;
 export const RAG_MIN_SCORE = 0.2;
 
 export const RAG_INDEX_VERSION_SEED = 1;
+export const RAG_SOURCE_SYNC_VERSION = 1;
 
 export type RagSourceType =
   | "task"

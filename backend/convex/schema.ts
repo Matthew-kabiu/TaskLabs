@@ -410,6 +410,7 @@ export default defineSchema({
     embeddingModel: v.string(),
     embeddingVersion: v.string(),
     pendingCount: v.number(),
+    sourceSyncVersion: v.optional(v.number()),
     updatedAt: v.number(),
   }).index("by_workspace", ["workspaceId"]),
 

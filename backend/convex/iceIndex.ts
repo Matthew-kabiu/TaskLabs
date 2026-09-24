@@ -1,4 +1,5 @@
 import { v } from 'convex/values';
+import { paginationOptsValidator } from 'convex/server';
 import { getAuthUserId } from '@convex-dev/auth/server';
 import { action, internalQuery, mutation, query } from './_generated/server';
 import { internal } from './_generated/api';
@@ -7,7 +8,8 @@ import { tasklabsRateLimiter } from './lib/rateLimits';
 import { embeddingConfig } from './rag/embeddingConfig';
 import { indexVector } from './rag/embeddingModels';
 import { personalSources, personalStatus, visibleSource } from './rag/personal';
-import { isRagSourceType, type RetrievedChunk } from './rag/providers';
+import { completeWorkspaceSourceSync, seedMissingRagSources } from './rag/service';
+import { RAG_SOURCE_SYNC_VERSION, isRagSourceType, type RetrievedChunk } from './rag/providers';
 
 const workspaceId = v.id('workspaces');
 export const config = query({ args: { workspaceId }, handler: async (ctx, args) => {
@@ -19,11 +21,69 @@ export const status = query({ args: { workspaceId }, handler: async (ctx, args) 
   return await personalStatus(ctx, args.workspaceId, userId);
 }});
 
+export const beginIndex = mutation({ args: { workspaceId }, handler: async (ctx, args) => {
+  const { userId } = await requireMembership(ctx, args.workspaceId);
+  await tasklabsRateLimiter.limit(ctx, 'ragIndex', { key: `${userId}:${args.workspaceId}`, throws: true });
+  return { ok: true };
+}});
+
+const canonicalSourceType = v.union(
+  v.literal('task'),
+  v.literal('taskComment'),
+  v.literal('project'),
+  v.literal('projectUpdate'),
+  v.literal('event'),
+);
+
+export const syncSources = mutation({ args: {
+  workspaceId,
+  sourceType: canonicalSourceType,
+  paginationOpts: paginationOptsValidator,
+}, handler: async (ctx, args) => {
+  await requireMembership(ctx, args.workspaceId);
+  const state = await ctx.db.query('ragWorkspaceState').withIndex('by_workspace', q => q.eq('workspaceId', args.workspaceId)).unique();
+  if ((state?.sourceSyncVersion ?? 0) >= RAG_SOURCE_SYNC_VERSION) {
+    return { seeded: 0, isDone: true, continueCursor: '', alreadySynced: true };
+  }
+
+  let sourceIds: string[];
+  let isDone: boolean;
+  let continueCursor: string;
+  if (args.sourceType === 'task') {
+    const page = await ctx.db.query('tasks').withIndex('by_workspace', q => q.eq('workspaceId', args.workspaceId)).paginate(args.paginationOpts);
+    sourceIds = page.page.map(source => source._id);
+    ({ isDone, continueCursor } = page);
+  } else if (args.sourceType === 'taskComment') {
+    const page = await ctx.db.query('taskComments').withIndex('by_workspace', q => q.eq('workspaceId', args.workspaceId)).paginate(args.paginationOpts);
+    sourceIds = page.page.map(source => source._id);
+    ({ isDone, continueCursor } = page);
+  } else if (args.sourceType === 'project') {
+    const page = await ctx.db.query('projects').withIndex('by_workspace', q => q.eq('workspaceId', args.workspaceId)).paginate(args.paginationOpts);
+    sourceIds = page.page.map(source => source._id);
+    ({ isDone, continueCursor } = page);
+  } else if (args.sourceType === 'projectUpdate') {
+    const page = await ctx.db.query('projectUpdates').withIndex('by_workspace', q => q.eq('workspaceId', args.workspaceId)).paginate(args.paginationOpts);
+    sourceIds = page.page.map(source => source._id);
+    ({ isDone, continueCursor } = page);
+  } else {
+    const page = await ctx.db.query('calendarEvents').withIndex('by_workspace', q => q.eq('workspaceId', args.workspaceId)).paginate(args.paginationOpts);
+    sourceIds = page.page.map(source => source._id);
+    ({ isDone, continueCursor } = page);
+  }
+  const seeded = await seedMissingRagSources(ctx, args.workspaceId, args.sourceType, sourceIds);
+  return { seeded, isDone, continueCursor, alreadySynced: false };
+}});
+
+export const finishSourceSync = mutation({ args: { workspaceId }, handler: async (ctx, args) => {
+  await requireMembership(ctx, args.workspaceId);
+  await completeWorkspaceSourceSync(ctx, args.workspaceId);
+  return { ok: true };
+}});
+
 export const claim = mutation({ args: { workspaceId, namespace: v.string() }, handler: async (ctx, args) => {
   const { userId } = await requireMembership(ctx, args.workspaceId);
   const { config, entries } = await personalSources(ctx, args.workspaceId, userId);
   if (config.namespace !== args.namespace) throw new Error('Embedding selection changed; retry indexing');
-  await tasklabsRateLimiter.limit(ctx, 'ragIndex', { key: `${userId}:${args.workspaceId}`, throws: true });
   const now = Date.now();
   for (const { source, indexed, content } of entries) {
     if (indexed?.sourceRevision === source.updatedAt && (indexed.state === 'complete' || indexed.state === 'failed' || indexed.updatedAt > now - 300_000)) continue;
