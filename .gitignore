@@ -17,10 +17,10 @@ next-env.d.ts
 !CLAUDE.md
 
 # sensitive/internal docs — explicitly ignored (also covered by *.md above)
-AGENTHANDOFF.md
+Agenthandoff.md
 SOP.md
 MIGRATION.md
-CHANGELOG.md
+Changelog.md
 STACK.md
 docs/API_KEYS_AND_MCP.md
 docs/DESIGN.md
@@ -28,6 +28,7 @@ docs/Backend-Build-Template-Convex.md
 
 # env — never commit real secrets
 .env.local
+.env.*
 .env
 .env.dev
 *.env
@@ -127,3 +128,4 @@ backend/.convex-tmp/
 .claude/stride/docs/principles/
 .claude/tools/
 # <<< stride <<<
+backups/
