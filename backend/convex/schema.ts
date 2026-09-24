@@ -377,7 +377,8 @@ export default defineSchema({
     updatedAt: v.number(),
   })
     .index("by_workspace_source", ["workspaceId", "sourceType", "sourceId"])
-    .index("by_workspace_status", ["workspaceId", "indexStatus"]),
+    .index("by_workspace_status", ["workspaceId", "indexStatus"])
+    .index("by_workspace_updated", ["workspaceId", "updatedAt"]),
 
   ragChunks: defineTable({
     workspaceId: v.id("workspaces"),
@@ -455,6 +456,11 @@ export default defineSchema({
     embeddingProvider: v.optional(v.union(v.literal('local'), v.literal('openai'), v.literal('gemini'), v.literal('openrouter'))),
     embeddingModel: v.optional(v.string()),
     embeddingRevision: v.optional(v.number()),
+    // Earlier index namespaces kept searchable after a reindex or model change
+    // (newest first, at most 3). Only chunks still matching the live source
+    // revision are ever returned from them.
+    retainedEmbeddings: v.optional(v.array(v.object({ namespace: v.string(), provider: v.union(v.literal('local'), v.literal('openai'), v.literal('gemini'), v.literal('openrouter')), model: v.string() }))),
+    systemPrompt: v.optional(v.string()),
     updatedAt: v.number(),
   }).index("by_workspace_user", ["workspaceId", "userId"]),
 
@@ -471,7 +477,23 @@ export default defineSchema({
     chunkCount: v.number(),
     updatedAt: v.number(),
   }).index('by_namespace_source', ['namespace', 'sourceType', 'sourceId'])
-    .index('by_workspace_source', ['workspaceId', 'sourceType', 'sourceId']),
+    .index('by_workspace_source', ['workspaceId', 'sourceType', 'sourceId'])
+    .index('by_namespace_state', ['namespace', 'state']),
+
+  // Per-namespace queue position and counters, so claims and status read only
+  // the ledger tail instead of the whole workspace.
+  iceIndexState: defineTable({
+    workspaceId: v.id('workspaces'),
+    userId: v.id('users'),
+    namespace: v.string(),
+    watermark: v.number(),
+    completeCount: v.number(),
+    failedCount: v.number(),
+    chunkCount: v.number(),
+    lastRunError: v.optional(v.string()),
+    lastRunAt: v.optional(v.number()),
+    updatedAt: v.number(),
+  }).index('by_namespace', ['namespace']),
 
   iceChunks: defineTable({
     workspaceId: v.id('workspaces'), userId: v.id('users'), namespace: v.string(),
@@ -479,5 +501,6 @@ export default defineSchema({
     text: v.string(), title: v.string(), anchor: v.string(), embedding: v.array(v.number()),
     searchEmbedding: v.optional(v.array(v.number())),
   }).index('by_document', ['documentId'])
+    .index('by_namespace', ['namespace'])
     .vectorIndex('by_embedding_native', { vectorField: 'searchEmbedding', dimensions: 4096, filterFields: ['namespace'] }),
 });

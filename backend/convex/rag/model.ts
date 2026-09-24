@@ -70,6 +70,8 @@ function taskText(task: Doc<"tasks">): string {
     `Status: ${task.status}`,
     `Priority: ${task.priority}`,
   ];
+  if (task.dueDate !== undefined) lines.push(`Due: ${new Date(task.dueDate).toISOString()}`);
+  if (task.completedAt !== undefined) lines.push(`Completed: ${new Date(task.completedAt).toISOString()}`);
   if (task.description) lines.push(`Description: ${task.description}`);
   return lines.join("\n");
 }

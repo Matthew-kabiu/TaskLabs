@@ -71,6 +71,8 @@ export type RetrievedChunk = {
   anchor: string;
   title: string;
   target: LinkTarget;
+  /** Set on one-hop neighbours: the anchor of the hit that linked to this record. */
+  via?: string;
 };
 
 export type RagCitation = {
@@ -86,6 +88,8 @@ export interface GenerationRequest {
   question: string;
   context: RetrievedChunk[];
   history?: { role: 'user' | 'assistant'; text: string }[];
+  /** The user's saved Ice instructions. Shapes style and focus only. */
+  ownerInstructions?: string;
 }
 
 export interface GenerationResult {

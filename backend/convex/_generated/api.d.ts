@@ -49,8 +49,10 @@ import type * as rag_conversationValidators from "../rag/conversationValidators.
 import type * as rag_embeddingConfig from "../rag/embeddingConfig.js";
 import type * as rag_embeddingModels from "../rag/embeddingModels.js";
 import type * as rag_model from "../rag/model.js";
+import type * as rag_neighbours from "../rag/neighbours.js";
 import type * as rag_personal from "../rag/personal.js";
 import type * as rag_providers from "../rag/providers.js";
+import type * as rag_remoteEmbedding from "../rag/remoteEmbedding.js";
 import type * as rag_service from "../rag/service.js";
 import type * as registration from "../registration.js";
 import type * as search from "../search.js";
@@ -119,8 +121,10 @@ declare const fullApi: ApiFromModules<{
   "rag/embeddingConfig": typeof rag_embeddingConfig;
   "rag/embeddingModels": typeof rag_embeddingModels;
   "rag/model": typeof rag_model;
+  "rag/neighbours": typeof rag_neighbours;
   "rag/personal": typeof rag_personal;
   "rag/providers": typeof rag_providers;
+  "rag/remoteEmbedding": typeof rag_remoteEmbedding;
   "rag/service": typeof rag_service;
   registration: typeof registration;
   search: typeof search;
