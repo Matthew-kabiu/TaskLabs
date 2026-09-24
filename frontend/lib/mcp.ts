@@ -461,6 +461,42 @@ export const MCP_TOOLS = [
     ]),
   },
   {
+    name: 'rag.query',
+    description:
+      'Retrieve tenant-filtered Ice sources for a question. Returns ranked chunks with stable citation anchors. The route embeds the question locally; no vector input needed.',
+    inputSchema: objectSchema(
+      {
+        q: textSchema,
+        topK: { type: 'number' },
+        minScore: { type: 'number' },
+      },
+      ['q'],
+    ),
+  },
+  {
+    name: 'rag.ask',
+    description:
+      'Ask Ice: retrieval plus a local extractive grounded answer with citations. No external model is called.',
+    inputSchema: objectSchema(
+      {
+        q: textSchema,
+        topK: { type: 'number' },
+        minScore: { type: 'number' },
+      },
+      ['q'],
+    ),
+  },
+  {
+    name: 'rag.status',
+    description: 'Read Ice index status for the API key workspace.',
+    inputSchema: objectSchema({}),
+  },
+  {
+    name: 'rag.reindex',
+    description: 'Flag every indexed source for reindexing. Workspace ADMIN or OWNER only.',
+    inputSchema: objectSchema({}),
+  },
+  {
     name: 'profile.get',
     description: 'Get non-credential profile fields for the API key owner.',
     inputSchema: objectSchema({}),

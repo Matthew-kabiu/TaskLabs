@@ -61,6 +61,8 @@ type ApiKeyScope =
   | 'profile:write'
   | 'telegram:read'
   | 'telegram:test'
+  | 'rag:read'
+  | 'rag:write'
   | 'system:read'
   | 'system:write';
 
@@ -99,6 +101,10 @@ const SCOPE_GROUPS = [
       'telegram:read',
       'telegram:test',
     ],
+  },
+  {
+    label: 'Ice RAG',
+    scopes: ['rag:read', 'rag:write'],
   },
   {
     label: 'System',

@@ -145,6 +145,26 @@ class McpRateLimitedError extends Error {
   }
 }
 
+/**
+ * Ice RAG over MCP: embed the question locally in this route and inject the
+ * vector. Convex actions cannot load native ONNX modules, so the vector
+ * must be computed here; the dispatch layer re-validates model identity.
+ */
+async function withRagVector(toolArgs: unknown): Promise<unknown> {
+  const args =
+    toolArgs && typeof toolArgs === 'object' && !Array.isArray(toolArgs)
+      ? (toolArgs as Record<string, unknown>)
+      : {};
+  if (Array.isArray(args.queryVector)) return args;
+  const question = typeof args.q === 'string' ? args.q.trim() : '';
+  if (question.length < 1 || question.length > 2000) {
+    throw new Error('q is required (1-2000 characters)');
+  }
+  const { embedTexts } = await import('@/lib/rag/embed');
+  const [vector] = await embedTexts([question]);
+  return { ...args, queryVector: vector };
+}
+
 function throwStructuredBackendError(error: unknown): never {
   const candidate = error as { data?: unknown };
   const data =
@@ -233,10 +253,14 @@ async function handleRpc(
     }
 
     try {
+      const toolInput =
+        params.name === 'rag.query' || params.name === 'rag.ask'
+          ? await withRagVector(params.arguments ?? {})
+          : (params.arguments ?? {});
       const result = await client().action(BACKEND_ROUTES.apiKeys.mcpDispatch, {
         token,
         toolName: params.name,
-        input: params.arguments ?? {},
+        input: toolInput,
       });
       return { payload: jsonRpcResult(id, responsePayload(result)) };
     } catch (error) {

@@ -28,6 +28,7 @@ const SCOPE_ROWS: [string, string][] = [
   ['members:read / members:admin', 'Workspace members list/update/remove'],
   ['notifications:read / notifications:write', 'Notification list, unread-count, and mark-read tools'],
   ['search:read', 'Workspace search'],
+  ['rag:read / rag:write', 'Ice retrieval, ask, status (read); full reindex (write, ADMIN+)'],
   ['profile:read / profile:write', 'Non-credential profile fields'],
   ['telegram:read / telegram:test', 'Telegram status and test send'],
   ['system:read / system:write', 'Reserved for platform-admin system tools'],
@@ -128,6 +129,7 @@ export default function DocsMcpPage() {
           <><strong>workspaces</strong> — list, get, members list/update/remove</>,
           <><strong>notifications</strong> — list, unread, markRead, markAllRead</>,
           <><strong>search</strong> — query</>,
+          <><strong>rag</strong> — query, ask, status, reindex</>,
           <><strong>profile</strong> — get, update</>,
           <><strong>telegram</strong> — status, test</>,
         ]}
@@ -196,6 +198,16 @@ export default function DocsMcpPage() {
         Blocked work uses <DocsInlineCode>BACKLOG</DocsInlineCode> plus a blocked
         label. <DocsInlineCode>BLOCKED</DocsInlineCode> is not a task status and
         is rejected with the allowed values.
+      </DocsP>
+      <DocsP>
+        Ice tools (<DocsInlineCode>rag.query</DocsInlineCode>,{' '}
+        <DocsInlineCode>rag.ask</DocsInlineCode>, <DocsInlineCode>rag.status</DocsInlineCode>)
+        retrieve tenant-filtered workspace sources with stable citation anchors.
+        Private tasks and events are enforced at retrieval, and empty evidence
+        returns an explicit not-found instead of a generated answer.{' '}
+        <DocsInlineCode>rag.ask</DocsInlineCode> returns a local extractive
+        answer — no external model is called over MCP. <DocsInlineCode>rag.reindex</DocsInlineCode>{' '}
+        requires a workspace ADMIN or OWNER.
       </DocsP>
 
       <DocsH2 id="clients">Configuring MCP clients</DocsH2>
