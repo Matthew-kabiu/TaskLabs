@@ -90,7 +90,12 @@ export interface GenerationRequest {
   history?: { role: 'user' | 'assistant'; text: string }[];
   /** The user's saved Ice instructions. Shapes style and focus only. */
   ownerInstructions?: string;
+  /** Live workspace counts and lists (rag/summary.ts). */
+  workspaceSummary?: string;
 }
+
+/** Longest stored or returned Ice answer, in characters. */
+export const ICE_ANSWER_MAX_CHARS = 16_000;
 
 export interface GenerationResult {
   answer: string;

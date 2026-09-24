@@ -104,3 +104,48 @@ describe('ice byok adapter', () => {
     expect(fetchSpy).toHaveBeenCalledOnce();
   });
 });
+
+describe('ice provider generation', () => {
+  const openRouterReply = (content: string, finishReason = 'stop') =>
+    vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ choices: [{ message: { content }, finish_reason: finishReason }] }),
+    });
+  const config = { provider: 'openrouter' as const, model: 'm', apiKey: 'k', maxOutputTokens: 1234 };
+
+  it('sends the configured output limit, anchor-first sources and the live summary', async () => {
+    const { generateWithProvider } = await import('@/lib/rag/generate');
+    const fetchSpy = openRouterReply('There are 8 projects; see [task#3].');
+    const result = await generateWithProvider(
+      config,
+      { question: 'How many projects?', context: [{ ...chunk('task#3'), via: 'project:p1' }], workspaceSummary: 'Projects: 8' },
+      fetchSpy as unknown as typeof fetch,
+    );
+    const body = JSON.parse(fetchSpy.mock.calls[0][1].body as string);
+    expect(body.max_tokens).toBe(1234);
+    expect(body.reasoning).toEqual({ exclude: true });
+    const user = body.messages[1].content as string;
+    expect(user).toContain('Workspace summary (live):\nProjects: 8');
+    expect(user).toContain('Source [task#3] (related to [project:p1]):');
+    expect(user).not.toMatch(/\[1 \|/);
+    expect(result.citations.map((citation) => citation.anchor)).toEqual(['task#3']);
+  });
+
+  it('marks answers cut off at the output limit', async () => {
+    const { generateWithProvider, ICE_TRUNCATED_NOTE } = await import('@/lib/rag/generate');
+    const result = await generateWithProvider(
+      config,
+      { question: 'List projects', context: [chunk('task#3')] },
+      openRouterReply('Based', 'length') as unknown as typeof fetch,
+    );
+    expect(result.answer).toBe(`Based\n\n${ICE_TRUNCATED_NOTE}`);
+  });
+
+  it('asks the model when only the summary is available', async () => {
+    const { generateWithProvider } = await import('@/lib/rag/generate');
+    const fetchSpy = openRouterReply('8 projects.');
+    const result = await generateWithProvider(config, { question: 'How many projects?', context: [], workspaceSummary: 'Projects: 8' }, fetchSpy as unknown as typeof fetch);
+    expect(fetchSpy).toHaveBeenCalledOnce();
+    expect(result.answer).toBe('8 projects.');
+  });
+});

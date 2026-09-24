@@ -6,6 +6,7 @@ import { requireMembership } from './lib/auth';
 import { citationArg } from './rag/conversationValidators';
 import { tasklabsRateLimiter } from './lib/rateLimits';
 import type { Id } from './_generated/dataModel';
+import { ICE_ANSWER_MAX_CHARS } from './rag/providers';
 
 const workspaceId = v.id('workspaces');
 
@@ -56,7 +57,7 @@ export const finish = mutation({ args: { workspaceId, turnId: v.id('iceTurns'), 
   if (!conversation || conversation.workspaceId !== args.workspaceId || conversation.userId !== userId) throw new Error('Forbidden');
   if (conversation.generation !== turn.generation || turn.status !== 'pending') return { stored: false };
   if (args.citations.length > 20) throw new Error('Too many citations');
-  await ctx.db.patch(turn._id, { status: args.error ? 'error' : 'complete', answer: args.answer?.slice(0, 4000), citations: args.citations, empty: args.empty, error: args.error?.slice(0, 300) });
+  await ctx.db.patch(turn._id, { status: args.error ? 'error' : 'complete', answer: args.answer?.slice(0, ICE_ANSWER_MAX_CHARS), citations: args.citations, empty: args.empty, error: args.error?.slice(0, 300) });
   return { stored: true };
 }});
 
