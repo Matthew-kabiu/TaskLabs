@@ -569,7 +569,11 @@ export async function submitFeedbackForActor(
   return { ok: true };
 }
 
-/** Flag every known source for reindexing. ADMIN+ only: full-workspace cost. */
+/**
+ * Flag every known source for the legacy index. ADMIN+ only. Leaves
+ * `updatedAt` alone: it is the source revision personal indexes compare
+ * against, so bumping it would force every member to reindex everything.
+ */
 export async function reindexWorkspaceForActor(
   ctx: MutationCtx,
   workspaceId: Id<"workspaces">,
@@ -582,7 +586,7 @@ export async function reindexWorkspaceForActor(
     .collect();
   const now = Date.now();
   for (const doc of docs) {
-    await ctx.db.patch(doc._id, { indexStatus: "pending", updatedAt: now });
+    await ctx.db.patch(doc._id, { indexStatus: "pending" });
   }
   const state = await ensureWorkspaceState(ctx, workspaceId);
   await ctx.db.patch(state._id, { pendingCount: docs.length, updatedAt: now });
@@ -591,8 +595,10 @@ export async function reindexWorkspaceForActor(
 }
 
 /**
- * Safety-net sweep: documents stuck in indexing return to pending, and the
- * pending counter is recomputed exactly. Runs hourly from crons.ts.
+ * Safety-net sweep: documents stuck in indexing return to pending, the
+ * pending counter is recomputed exactly, and leftover product-docs sources
+ * (no longer an Ice source) are removed with their chunks. Runs hourly from
+ * crons.ts. Never changes `updatedAt`, the personal-index source revision.
  */
 export async function sweepStaleDocuments(ctx: MutationCtx, olderThanMs: number) {
   const cutoff = Date.now() - olderThanMs;
@@ -600,12 +606,25 @@ export async function sweepStaleDocuments(ctx: MutationCtx, olderThanMs: number)
   let reset = 0;
   for (const doc of indexing) {
     if (doc.indexStatus === "indexing" && doc.updatedAt < cutoff) {
-      await ctx.db.patch(doc._id, { indexStatus: "pending", updatedAt: Date.now() });
+      await ctx.db.patch(doc._id, { indexStatus: "pending" });
       reset += 1;
     }
   }
   const workspaces = await ctx.db.query("ragWorkspaceState").collect();
+  let docsRemoved = 0;
   for (const state of workspaces) {
+    const docsSources = await ctx.db
+      .query("ragDocuments")
+      .withIndex("by_workspace_source", (q) =>
+        q.eq("workspaceId", state.workspaceId).eq("sourceType", "docs"),
+      )
+      .take(20);
+    for (const doc of docsSources) {
+      await removeRagSource(ctx, state.workspaceId, "docs", doc.sourceId);
+      docsRemoved += 1;
+    }
+  }
+  for (const state of await ctx.db.query("ragWorkspaceState").collect()) {
     const pending = await ctx.db
       .query("ragDocuments")
       .withIndex("by_workspace_status", (q) =>
@@ -623,5 +642,5 @@ export async function sweepStaleDocuments(ctx: MutationCtx, olderThanMs: number)
       updatedAt: Date.now(),
     });
   }
-  return { reset };
+  return { reset, docsRemoved };
 }

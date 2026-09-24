@@ -193,6 +193,7 @@ export const requestIndex = mutation({
   handler: async (ctx, args) => {
     await requireMembership(ctx, args.workspaceId);
     if (!isRagSourceType(args.sourceType)) throw new Error("Unknown source type");
+    if (args.sourceType === "docs") throw new Error("Product docs are not an Ice source");
     await markRagPending(ctx, args.workspaceId, args.sourceType, args.sourceId);
     return { ok: true };
   },
