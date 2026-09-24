@@ -25,6 +25,7 @@ async function selectedEmbedding(client: ConvexHttpClient, workspaceId: string) 
 }
 
 type ConversationHistory = { role: 'user' | 'assistant'; text: string }[];
+type SourceSyncPage = { seeded: number; isDone: boolean; continueCursor: string; alreadySynced: boolean };
 
 export async function personalQuery(client: ConvexHttpClient, input: { workspaceId: string; question: string; topK?: number }, history: ConversationHistory = []): Promise<IceQueryResponse> {
   const { config, key } = await selectedEmbedding(client, input.workspaceId);
@@ -46,7 +47,30 @@ export async function personalAsk(client: ConvexHttpClient, input: { workspaceId
 
 export async function personalIndex(client: ConvexHttpClient, workspaceId: string): Promise<IceIndexResponse> {
   const { config, key } = await selectedEmbedding(client, workspaceId);
+  await client.mutation(BACKEND_ROUTES.iceIndex.beginIndex, {
+    workspaceId: workspaceId as Id<'workspaces'>,
+  });
   const result: IceIndexResponse = { processed: 0, indexed: 0, skipped: 0, failed: 0, pendingLeft: 0, errors: [] };
+  const sourceTypes = ['task', 'taskComment', 'project', 'projectUpdate', 'event'] as const;
+  let alreadySynced = false;
+  for (const sourceType of sourceTypes) {
+    let cursor: string | null = null;
+    do {
+      const page: SourceSyncPage = await client.mutation(BACKEND_ROUTES.iceIndex.syncSources, {
+        workspaceId: workspaceId as Id<'workspaces'>,
+        sourceType,
+        paginationOpts: { numItems: 100, cursor },
+      });
+      alreadySynced = page.alreadySynced;
+      cursor = page.isDone ? null : page.continueCursor;
+    } while (cursor);
+    if (alreadySynced) break;
+  }
+  if (!alreadySynced) {
+    await client.mutation(BACKEND_ROUTES.iceIndex.finishSourceSync, {
+      workspaceId: workspaceId as Id<'workspaces'>,
+    });
+  }
   for (let i = 0; i < 10; i++) {
     const claimed = await client.mutation(BACKEND_ROUTES.iceIndex.claim, { workspaceId: workspaceId as Id<'workspaces'>, namespace: config.namespace });
     if (!claimed) break;
