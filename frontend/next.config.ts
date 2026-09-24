@@ -69,6 +69,10 @@ const nextConfig: NextConfig = {
   output: 'standalone',
   reactStrictMode: true,
   poweredByHeader: false,
+  // Ice local embeddings load a native ONNX runtime. Keep the provider
+  // external so the standalone server requires it from node_modules at
+  // runtime instead of tracing (and duplicating) native bindings.
+  serverExternalPackages: ['@huggingface/transformers', 'onnxruntime-node'],
   ...{ turbopack: { root: turbopackRoot } },
   experimental: {
     serverActions: { bodySizeLimit: '2mb' },

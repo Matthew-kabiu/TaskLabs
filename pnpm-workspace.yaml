@@ -1,3 +1,8 @@
 packages:
   - frontend
   - backend
+
+packageExtensions:
+  "@convex-dev/rate-limiter@0.3.2":
+    dependencies:
+      convex-test: "^0.0.53"
